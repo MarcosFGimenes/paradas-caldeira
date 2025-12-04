@@ -37,6 +37,8 @@ npm install
 cp .env.example .env.local
 ```
 
+6. Preencha as chaves copiadas do console do Firebase no arquivo `.env.local`.
+
 ### 3. Executar
 
 ```bash
@@ -45,15 +47,21 @@ npm run dev
 
 Visite `http://localhost:3000`
 
-## 📊 Funcionalidades
+## 📊 Funcionalidades atuais
 
-- ✅ Importação de Excel com validação automática
-- ✅ Organização em 3 níveis: Pacotes > Subpacotes > O.S.
-- ✅ Atualização em tempo real com auto-save
-- ✅ Histórico de modificações
-- ✅ Indicadores visuais de progresso (🟧 Em andamento, 🟩 Concluído, 🟥 Atrasado)
-- ✅ Integração Firebase Firestore
-- ✅ Dashboard com estatísticas
+- ✅ Listagem de pacotes com navegação para subpacotes
+- ✅ Visualização das ordens de serviço de cada subpacote
+- ✅ Atualização de status de O.S. (pendente/concluída)
+- ✅ Importação inicial de O.S. via Excel
+
+## 🚧 Pendências e próximos passos
+
+- 🔲 Criar/editar pacotes e subpacotes via interface
+- 🔲 Validação completa dos dados importados do Excel (campos obrigatórios, mensagens em lote)
+- 🔲 Indicadores de progresso e dashboard resumido
+- 🔲 Histórico de modificações das O.S.
+- 🔲 Autenticação e controle de acesso
+- 🔲 Ajustar layout/tema (hoje usa estilos inline simples)
 
 ## 📁 Estrutura
 

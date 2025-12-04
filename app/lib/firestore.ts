@@ -1,4 +1,4 @@
-import firebase from "@/app/lib/firebase";
+import firebase, { ensureDb } from "@/app/lib/firebase";
 import {
   collection,
   doc,
@@ -13,8 +13,6 @@ import {
   DocumentData,
   QuerySnapshot,
 } from "firebase/firestore";
-
-const db = firebase.db;
 
 export type Package = {
   id?: string;
@@ -48,8 +46,7 @@ export type WorkOrderLog = {
 };
 
 function col(path: string) {
-  if (!db) throw new Error("Firebase not initialized");
-  return collection(db, path);
+  return collection(ensureDb(), path);
 }
 
 export class PackageService {
