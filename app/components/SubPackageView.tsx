@@ -10,6 +10,7 @@ type Props = {
 export const SubPackageView: React.FC<Props> = ({ subPackage }) => {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -19,6 +20,10 @@ export const SubPackageView: React.FC<Props> = ({ subPackage }) => {
         const list = await WorkOrderService.listBySubPackage(subPackage.id || "");
         if (!mounted) return;
         setWorkOrders(list);
+        setError(null);
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message || "Erro ao carregar ordens");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -32,6 +37,7 @@ export const SubPackageView: React.FC<Props> = ({ subPackage }) => {
   return (
     <div style={{ marginBottom: 16 }}>
       <h4>{subPackage.name}</h4>
+      {error && <div style={{ color: "red" }}>{error}</div>}
       {loading && <div>Carregando ordens...</div>}
       {!loading && workOrders.length === 0 && <div>Nenhuma ordem neste subpacote</div>}
       <div>

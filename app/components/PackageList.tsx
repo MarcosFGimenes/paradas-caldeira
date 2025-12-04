@@ -6,6 +6,7 @@ import { PackageService, Package as PackageType } from "@/app/lib/firestore";
 export const PackageList: React.FC = () => {
   const [packages, setPackages] = useState<PackageType[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -15,6 +16,10 @@ export const PackageList: React.FC = () => {
         const list = await PackageService.list();
         if (!mounted) return;
         setPackages(list);
+        setError(null);
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message || "Erro ao buscar pacotes");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -28,6 +33,7 @@ export const PackageList: React.FC = () => {
   return (
     <div>
       <h3>Pacotes</h3>
+      {error && <div style={{ color: "red" }}>{error}</div>}
       {loading && <div>Carregando pacotes...</div>}
       {!loading && packages.length === 0 && <div>Nenhum pacote</div>}
       <ul>

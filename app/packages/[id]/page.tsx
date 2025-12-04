@@ -10,6 +10,7 @@ export default function PackagePage() {
   const [pkg, setPkg] = useState<PackageType | null>(null);
   const [subpackages, setSubpackages] = useState<SubPackage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -22,6 +23,10 @@ export default function PackagePage() {
         if (!mounted) return;
         setPkg(p);
         setSubpackages(subs);
+        setError(null);
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message || "Erro ao carregar pacote");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -37,6 +42,7 @@ export default function PackagePage() {
   return (
     <div style={{ padding: 16 }}>
       {loading && <div>Carregando...</div>}
+      {error && <div style={{ color: "red" }}>{error}</div>}
       {pkg && (
         <header>
           <h2>{pkg.name}</h2>
