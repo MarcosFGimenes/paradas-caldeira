@@ -1,0 +1,21 @@
+TAG,Nome da Máquina,Nome Antigo,Descrição do Serviço,Equipe,Prioridade
+BOMB-001,Bomba Centrífuga Principal,Bomba Centrifuga - Antiga,Substituir rolamento de esferas,Mecânica,Alta
+BOMB-002,Bomba de Transferência,Bomba Trans A,Inspeção e limpeza de impurezas,Mecânica,Média
+COMP-001,Compressor de Ar,Compressor Ar Velho,Substituir filtro de ar,Mecânica,Média
+COMP-002,Compressor Backup,Compressor 2,Alinhar acoplamento,Mecânica,Baixa
+MOT-001,Motor Elétrico Principal,Motor Principal Antigo,Reenrolamento de bobinas,Elétrica,Alta
+MOT-002,Motor Auxiliar,Motor Aux,Lubrificação de mancais,Mecânica,Baixa
+MOT-003,Motor Ventilador,Ventilador Motor,Verificar isolamento elétrico,Elétrica,Média
+TANK-001,Tanque de Armazenamento,Reservatório A,Pintura interna e limpeza,Soldadura,Alta
+TANK-002,Tanque de Condensado,Reservatório B,Reparo de pequeno vazamento,Soldadura,Média
+VALV-001,Válvula Reguladora,Válvula Reg Antiga,Substitição de assento,Mecânica,Alta
+VALV-002,Válvula de Segurança,Válvula Seg,Teste de funcionamento,Elétrica,Média
+VALV-003,Válvula de Retorno,Válvula Ret,Limpeza de internos,Mecânica,Baixa
+TUBI-001,Tubulação Linha Principal,Tubo Principal,Inspeção e teste de pressão,Soldadura,Alta
+TUBI-002,Tubulação Secundária,Tubo Secundário,Limpeza e desobstrução,Soldadura,Média
+PCM-001,Painel de Controle,Painel Controle Antigo,Limpeza de bornes e conexões,PCM,Alta
+PCM-002,Inversor de Frequência,Inversor IF Antigo,Calibração de parâmetros,PCM,Alta
+PCM-003,Controlador Lógico,PLC Sistema,Atualização de firmware,PCM,Média
+INST-001,Indicador de Temperatura,Termômetro Antigo,Calibração do sensor,Instrumentação,Média
+INST-002,Indicador de Pressão,Manômetro,Substituição do visor,Instrumentação,Baixa
+INST-003,Medidor de Fluxo,Rotâmetro Velho,Limpeza de tubo de vidro,Instrumentação,Baixa
