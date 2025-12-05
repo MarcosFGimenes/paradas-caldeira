@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { SubPackage, WorkOrder, WorkOrderService } from "@/app/lib/firestore";
 import WorkOrderItem from "@/app/components/WorkOrderItem";
+import AddWorkOrderForm from "@/app/components/AddWorkOrderForm";
 
 type Props = {
   subPackage: SubPackage;
@@ -46,6 +47,19 @@ export const SubPackageView: React.FC<Props> = ({ subPackage, workOrders }) => {
     () => workOrdersState.filter((w) => w.status === "done").length,
     [workOrdersState]
   );
+
+  const handleServiceCreated = (id: string, title: string) => {
+    setWorkOrdersState((prev) => [
+      ...prev,
+      {
+        id,
+        title,
+        packageId: subPackage.packageId,
+        subPackageId: subPackage.id,
+        status: "todo",
+      },
+    ]);
+  };
 
   return (
     <div className="space-y-4 rounded-2xl border border-white/5 bg-slate-900/60 p-5 shadow-xl shadow-emerald-500/5">
@@ -106,6 +120,12 @@ export const SubPackageView: React.FC<Props> = ({ subPackage, workOrders }) => {
       <div className="rounded-xl border border-dashed border-emerald-400/40 bg-emerald-400/5 p-4 text-sm text-emerald-100">
         Selecione serviços disponíveis para este subpacote.
       </div>
+
+      <AddWorkOrderForm
+        packageId={subPackage.packageId}
+        subPackageId={subPackage.id || ""}
+        onCreated={handleServiceCreated}
+      />
 
       {error && (
         <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{error}</div>
