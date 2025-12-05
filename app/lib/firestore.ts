@@ -41,6 +41,7 @@ export type WorkOrder = {
   subPackageId?: string;
   title: string;
   status?: string;
+  progress?: number;
   createdAt?: any;
   office?: string | number | null;
   osNumber?: string | number | null;
