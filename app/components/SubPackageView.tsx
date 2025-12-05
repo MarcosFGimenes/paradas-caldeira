@@ -107,7 +107,7 @@ export const SubPackageView: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-white/5 bg-white/5 px-3 py-2">
           <p className="text-xs uppercase tracking-wide text-slate-400">Processos</p>
           <p className="text-lg font-semibold text-white">{workOrdersState.length}</p>
@@ -116,11 +116,9 @@ export const SubPackageView: React.FC<Props> = ({
           <p className="text-xs uppercase tracking-wide text-slate-400">Realizados</p>
           <p className="text-lg font-semibold text-white">{completed}</p>
         </div>
-        <div className="rounded-xl border border-white/5 bg-white/5 px-3 py-2">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Entrega prevista</p>
-          <p className="text-lg font-semibold text-white">-</p>
-        </div>
       </div>
+
+      <ServiceProgressChart workOrders={workOrdersState} />
 
       <div className="rounded-xl border border-dashed border-emerald-400/40 bg-emerald-400/5 p-4 text-sm text-emerald-100">
         Atualize o progresso digitando a porcentagem de cada serviço. Os valores são salvos automaticamente.
@@ -302,6 +300,120 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+type ServiceProgressChartProps = {
+  workOrders: WorkOrder[];
+};
+
+const buildPath = (values: number[]) => {
+  if (values.length === 0) return "";
+  const maxIndex = Math.max(values.length - 1, 1);
+  const commands = values.map((val, idx) => {
+    const x = (idx / maxIndex) * 100;
+    const y = 100 - Math.min(100, Math.max(0, val));
+    return `${idx === 0 ? "M" : "L"} ${x},${y}`;
+  });
+  return commands.join(" ");
+};
+
+const ServiceProgressChart: React.FC<ServiceProgressChartProps> = ({ workOrders }) => {
+  const normalized = workOrders.map((w, idx) => ({
+    label: w.title || w.task || `Serviço ${idx + 1}`,
+    progress: Math.min(100, Math.max(0, Number(w.progress) || 0)),
+  }));
+
+  const planned = normalized.map((_, idx) => {
+    const maxIndex = Math.max(normalized.length - 1, 1);
+    return Math.round((idx / maxIndex) * 100);
+  });
+
+  const realized = normalized.map((item) => item.progress);
+  const average = realized.length
+    ? Math.round(realized.reduce((sum, val) => sum + val, 0) / realized.length)
+    : 0;
+  const maxProgress = realized.length ? Math.max(...realized) : 0;
+  const minProgress = realized.length ? Math.min(...realized) : 0;
+
+  if (normalized.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-center text-slate-400">
+        Adicione serviços para visualizar o progresso planejado x realizado.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-white/5 bg-slate-950/40 p-5 shadow-inner shadow-emerald-500/5">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-400">Curva do serviço</p>
+          <h4 className="text-lg font-semibold text-white">Evolução planejada versus realizada</h4>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="flex-1">
+          <div className="overflow-hidden rounded-xl border border-white/5 bg-slate-900/60">
+            <svg viewBox="0 0 100 100" className="h-64 w-full">
+              <defs>
+                <linearGradient id="planned" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="rgba(94,234,212,0.15)" />
+                  <stop offset="100%" stopColor="rgba(94,234,212,0.0)" />
+                </linearGradient>
+              </defs>
+              <rect x="0" y="0" width="100" height="100" fill="rgba(255,255,255,0.02)" />
+              <path
+                d={buildPath(planned)}
+                fill="none"
+                strokeDasharray="4 4"
+                strokeWidth="2"
+                stroke="rgba(94,234,212,0.7)"
+              />
+              <path
+                d={buildPath(realized)}
+                fill="none"
+                strokeWidth="2.75"
+                stroke="rgb(249,115,22)"
+              />
+              {realized.map((value, idx) => {
+                const maxIndex = Math.max(realized.length - 1, 1);
+                const cx = (idx / maxIndex) * 100;
+                const cy = 100 - value;
+                return (
+                  <circle key={idx} cx={cx} cy={cy} r={1.5} fill="rgb(249,115,22)" />
+                );
+              })}
+            </svg>
+          </div>
+        </div>
+
+        <div className="flex w-full flex-row justify-end gap-3 lg:w-56 lg:flex-col">
+          <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-sm text-white">
+            <span className="h-2 w-2 rounded-full bg-amber-400" />
+            <div className="leading-tight">
+              <p className="text-[11px] uppercase tracking-wide text-slate-400">Realizado</p>
+              <p className="text-sm font-semibold">{average}% médio</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-sm text-white">
+            <span className="h-2 w-2 rounded-full bg-emerald-300" />
+            <div className="leading-tight">
+              <p className="text-[11px] uppercase tracking-wide text-slate-400">Planejado</p>
+              <p className="text-sm font-semibold">0% → 100%</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-sm text-white">
+            <span className="h-2 w-2 rounded-full bg-sky-300" />
+            <div className="leading-tight">
+              <p className="text-[11px] uppercase tracking-wide text-slate-400">Máx / Mín</p>
+              <p className="text-sm font-semibold">{maxProgress}% / {minProgress}%</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
