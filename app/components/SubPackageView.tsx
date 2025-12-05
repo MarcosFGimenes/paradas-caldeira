@@ -107,7 +107,7 @@ export const SubPackageView: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-white/5 bg-white/5 px-3 py-2">
           <p className="text-xs uppercase tracking-wide text-slate-400">Processos</p>
           <p className="text-lg font-semibold text-white">{workOrdersState.length}</p>
@@ -115,10 +115,6 @@ export const SubPackageView: React.FC<Props> = ({
         <div className="rounded-xl border border-white/5 bg-white/5 px-3 py-2">
           <p className="text-xs uppercase tracking-wide text-slate-400">Realizados</p>
           <p className="text-lg font-semibold text-white">{completed}</p>
-        </div>
-        <div className="rounded-xl border border-white/5 bg-white/5 px-3 py-2">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Entrega prevista</p>
-          <p className="text-lg font-semibold text-white">-</p>
         </div>
       </div>
 
