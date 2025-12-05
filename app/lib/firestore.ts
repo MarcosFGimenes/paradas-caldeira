@@ -19,6 +19,8 @@ export type Package = {
   description?: string;
   createdAt?: any;
   createdBy?: string;
+  ownerId?: string;
+  ownerEmail?: string | null;
 };
 
 export type SubPackage = {
@@ -27,6 +29,8 @@ export type SubPackage = {
   name: string;
   description?: string;
   createdBy?: string;
+  ownerId?: string;
+  ownerEmail?: string | null;
 };
 
 export type WorkOrder = {
@@ -44,6 +48,8 @@ export type WorkOrder = {
   responsible?: string | null;
   [key: string]: any;
   createdBy?: string;
+  ownerId?: string;
+  ownerEmail?: string | null;
 };
 
 export type WorkOrderLog = {
@@ -52,6 +58,8 @@ export type WorkOrderLog = {
   message: string;
   createdAt?: any;
   createdBy?: string;
+  ownerId?: string;
+  ownerEmail?: string | null;
 };
 
 function requireUser() {
@@ -86,6 +94,8 @@ export class PackageService {
       ...data,
       createdAt: serverTimestamp(),
       createdBy: user.uid,
+      ownerId: user.uid,
+      ownerEmail: user.email ?? null,
     } as DocumentData);
     return ref.id;
   }
@@ -121,7 +131,12 @@ export class SubPackageService {
     const user = requireUser();
     const ref = await addDoc(
       col("subpackages"),
-      { ...data, createdBy: user.uid } as DocumentData
+      {
+        ...data,
+        createdBy: user.uid,
+        ownerId: user.uid,
+        ownerEmail: user.email ?? null,
+      } as DocumentData
     );
     return ref.id;
   }
@@ -162,6 +177,8 @@ export class WorkOrderService {
       ...data,
       createdAt: serverTimestamp(),
       createdBy: user.uid,
+      ownerId: user.uid,
+      ownerEmail: user.email ?? null,
     } as DocumentData);
     return ref.id;
   }
@@ -189,6 +206,8 @@ export class WorkOrderLogService {
       ...log,
       createdAt: serverTimestamp(),
       createdBy: user.uid,
+      ownerId: user.uid,
+      ownerEmail: user.email ?? null,
     } as DocumentData);
     return ref.id;
   }
