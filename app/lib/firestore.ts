@@ -1,4 +1,4 @@
-import firebase, { ensureDb } from "@/app/lib/firebase";
+import firebase, { ensureAuth, ensureDb } from "@/app/lib/firebase";
 import {
   collection,
   doc,
@@ -11,7 +11,6 @@ import {
   where,
   serverTimestamp,
   DocumentData,
-  QuerySnapshot,
 } from "firebase/firestore";
 
 export type Package = {
@@ -19,6 +18,9 @@ export type Package = {
   name: string;
   description?: string;
   createdAt?: any;
+  createdBy?: string;
+  ownerId?: string;
+  ownerEmail?: string | null;
 };
 
 export type SubPackage = {
@@ -26,6 +28,9 @@ export type SubPackage = {
   packageId: string;
   name: string;
   description?: string;
+  createdBy?: string;
+  ownerId?: string;
+  ownerEmail?: string | null;
 };
 
 export type WorkOrder = {
@@ -35,7 +40,16 @@ export type WorkOrder = {
   title: string;
   status?: string;
   createdAt?: any;
+  office?: string | number | null;
+  osNumber?: string | number | null;
+  tag?: string | number | null;
+  machineName?: string | null;
+  task?: string | null;
+  responsible?: string | null;
   [key: string]: any;
+  createdBy?: string;
+  ownerId?: string;
+  ownerEmail?: string | null;
 };
 
 export type WorkOrderLog = {
@@ -43,7 +57,19 @@ export type WorkOrderLog = {
   workOrderId: string;
   message: string;
   createdAt?: any;
+  createdBy?: string;
+  ownerId?: string;
+  ownerEmail?: string | null;
 };
+
+function requireUser() {
+  const auth = ensureAuth();
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("Usuário não autenticado. Faça login para continuar.");
+  }
+  return user;
+}
 
 function col(path: string) {
   return collection(ensureDb(), path);
@@ -51,7 +77,8 @@ function col(path: string) {
 
 export class PackageService {
   static async list(): Promise<Package[]> {
-    const snap = await getDocs(col("packages"));
+    const user = requireUser();
+    const snap = await getDocs(query(col("packages"), where("createdBy", "==", user.uid)));
     return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Package) }));
   }
 
@@ -62,9 +89,13 @@ export class PackageService {
   }
 
   static async create(data: Package): Promise<string> {
+    const user = requireUser();
     const ref = await addDoc(col("packages"), {
       ...data,
       createdAt: serverTimestamp(),
+      createdBy: user.uid,
+      ownerId: user.uid,
+      ownerEmail: user.email ?? null,
     } as DocumentData);
     return ref.id;
   }
@@ -80,7 +111,12 @@ export class PackageService {
 
 export class SubPackageService {
   static async listByPackage(packageId: string): Promise<SubPackage[]> {
-    const q = query(col("subpackages"), where("packageId", "==", packageId));
+    const user = requireUser();
+    const q = query(
+      col("subpackages"),
+      where("packageId", "==", packageId),
+      where("createdBy", "==", user.uid)
+    );
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...(d.data() as SubPackage) }));
   }
@@ -92,20 +128,39 @@ export class SubPackageService {
   }
 
   static async create(data: SubPackage): Promise<string> {
-    const ref = await addDoc(col("subpackages"), data as DocumentData);
+    const user = requireUser();
+    const ref = await addDoc(
+      col("subpackages"),
+      {
+        ...data,
+        createdBy: user.uid,
+        ownerId: user.uid,
+        ownerEmail: user.email ?? null,
+      } as DocumentData
+    );
     return ref.id;
   }
 }
 
 export class WorkOrderService {
   static async listByPackage(packageId: string): Promise<WorkOrder[]> {
-    const q = query(col("workorders"), where("packageId", "==", packageId));
+    const user = requireUser();
+    const q = query(
+      col("workorders"),
+      where("packageId", "==", packageId),
+      where("createdBy", "==", user.uid)
+    );
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...(d.data() as WorkOrder) }));
   }
 
   static async listBySubPackage(subPackageId: string): Promise<WorkOrder[]> {
-    const q = query(col("workorders"), where("subPackageId", "==", subPackageId));
+    const user = requireUser();
+    const q = query(
+      col("workorders"),
+      where("subPackageId", "==", subPackageId),
+      where("createdBy", "==", user.uid)
+    );
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...(d.data() as WorkOrder) }));
   }
@@ -117,9 +172,13 @@ export class WorkOrderService {
   }
 
   static async create(data: WorkOrder): Promise<string> {
+    const user = requireUser();
     const ref = await addDoc(col("workorders"), {
       ...data,
       createdAt: serverTimestamp(),
+      createdBy: user.uid,
+      ownerId: user.uid,
+      ownerEmail: user.email ?? null,
     } as DocumentData);
     return ref.id;
   }
@@ -131,15 +190,24 @@ export class WorkOrderService {
 
 export class WorkOrderLogService {
   static async listByWorkOrder(workOrderId: string): Promise<WorkOrderLog[]> {
-    const q = query(col("workorderlogs"), where("workOrderId", "==", workOrderId));
+    const user = requireUser();
+    const q = query(
+      col("workorderlogs"),
+      where("workOrderId", "==", workOrderId),
+      where("createdBy", "==", user.uid)
+    );
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...(d.data() as WorkOrderLog) }));
   }
 
   static async add(log: WorkOrderLog): Promise<string> {
+    const user = requireUser();
     const ref = await addDoc(col("workorderlogs"), {
       ...log,
       createdAt: serverTimestamp(),
+      createdBy: user.uid,
+      ownerId: user.uid,
+      ownerEmail: user.email ?? null,
     } as DocumentData);
     return ref.id;
   }
