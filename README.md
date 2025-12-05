@@ -39,7 +39,27 @@ cp .env.example .env.local
 
 6. Preencha as chaves copiadas do console do Firebase no arquivo `.env.local`.
 
-### 3. Executar
+### 3. Aplicar regras do Firestore
+
+Copie o conteúdo de `firestore.rules` deste repositório e cole na aba **Rules** do Firestore para proteger as coleções.
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Acesso somente para usuários autenticados
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    match /{document=**} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}
+```
+
+### 4. Executar
 
 ```bash
 npm run dev
