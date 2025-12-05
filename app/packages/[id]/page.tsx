@@ -141,7 +141,7 @@ export default function PackagePage() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Link
-                  href="/"
+                  href="/packages"
                   className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-400/60 hover:text-emerald-100"
                 >
                   Voltar para a tela inicial

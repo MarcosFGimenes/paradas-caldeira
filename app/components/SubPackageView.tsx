@@ -167,27 +167,35 @@ type WorkOrderProgressRowProps = {
 
 const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({ workOrder, onProgressUpdated }) => {
   const { update } = useWorkOrderUpdate();
-  const [progress, setProgress] = useState<number>(Number(workOrder.progress) || 0);
+  const [inputValue, setInputValue] = useState<string>(
+    workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : ""
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setProgress(Number(workOrder.progress) || 0);
+    setInputValue(workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : "");
   }, [workOrder.progress]);
 
   useEffect(() => {
     if (!workOrder.id) return;
+    if (!inputValue.trim()) return;
+
+    const numericValue = Number(inputValue);
+    if (!Number.isFinite(numericValue)) return;
+
     const current = Number(workOrder.progress) || 0;
-    if (progress === current) return;
+    const normalized = Math.max(0, Math.min(100, Math.round(numericValue)));
+    if (normalized === current) return;
+
     const handler = setTimeout(async () => {
       setSaving(true);
-      const normalized = Number.isFinite(progress) ? Math.max(0, Math.min(100, Math.round(progress))) : 0;
       await update(workOrder.id!, { progress: normalized });
       onProgressUpdated?.(normalized);
       setSaving(false);
     }, 600);
 
     return () => clearTimeout(handler);
-  }, [progress, update, workOrder.id, onProgressUpdated]);
+  }, [inputValue, update, workOrder.id, workOrder.progress, onProgressUpdated]);
 
   return (
     <div className="space-y-3 rounded-xl border border-white/5 bg-white/5 px-4 py-3 shadow-sm shadow-emerald-500/5">
@@ -198,14 +206,26 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({ workOrder, 
         <p className="text-sm text-slate-400">{workOrder.task || workOrder.title}</p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <label className="text-sm font-semibold text-slate-200">Progresso (%)</label>
+        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
+          Anterior: {Number(workOrder.progress) || 0}%
+        </span>
+        <label className="text-sm font-semibold text-slate-200" htmlFor={`progress-${workOrder.id}`}>
+          Progresso (%)
+        </label>
         <input
-          type="number"
-          min={0}
-          max={100}
-          value={progress}
-          onChange={(e) => setProgress(Number(e.target.value))}
+          id={`progress-${workOrder.id}`}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={inputValue}
+          onChange={(e) => {
+            const nextValue = e.target.value
+              .replace(/[^0-9]/g, "")
+              .replace(/^0+(?=\d)/, "");
+            setInputValue(nextValue);
+          }}
           className="w-28 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
+          placeholder="0"
         />
         {saving ? (
           <span className="text-xs text-slate-400">Salvando...</span>
