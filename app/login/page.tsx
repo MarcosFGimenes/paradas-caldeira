@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { ensureAuth } from "@/app/lib/firebase";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const storedEmail = localStorage.getItem("last-email");
@@ -21,11 +27,26 @@ export default function LoginPage() {
     }
   }, [email]);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setMessage(
-      "Autenticação não está configurada neste ambiente. Use o formulário apenas como referência visual."
-    );
+    setError(null);
+    setMessage(null);
+
+    try {
+      setLoading(true);
+      const auth = ensureAuth();
+      await signInWithEmailAndPassword(auth, email, password);
+      setMessage("Login realizado com sucesso. Redirecionando...");
+      router.push("/packages");
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Não foi possível autenticar. Verifique suas credenciais.";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -84,13 +105,19 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                className="w-full rounded-full bg-emerald-500/80 px-5 py-3 text-sm font-semibold text-emerald-900 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400"
+                disabled={loading}
+                className="w-full rounded-full bg-emerald-500/80 px-5 py-3 text-sm font-semibold text-emerald-900 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 disabled:opacity-60"
               >
-                Entrar
+                {loading ? "Entrando..." : "Entrar"}
               </button>
 
+              {error && (
+                <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
+                  {error}
+                </div>
+              )}
               {message && (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
                   {message}
                 </div>
               )}
