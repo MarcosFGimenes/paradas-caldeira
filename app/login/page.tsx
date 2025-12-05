@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -150,16 +149,6 @@ export default function LoginPage() {
               <p className="text-slate-300">
                 Solicite a criação da sua conta ao administrador para liberar os módulos de cadastro.
               </p>
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50">
-              <span className="font-semibold">Ambiente demo</span>
-              <Link
-                href="/packages"
-                className="rounded-full border border-emerald-300/40 bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-50 transition hover:border-emerald-200/60"
-              >
-                Visualizar pacotes
-              </Link>
             </div>
           </div>
         </div>

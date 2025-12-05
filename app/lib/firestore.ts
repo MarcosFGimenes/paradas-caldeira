@@ -1,4 +1,4 @@
-import firebase, { ensureAuth, ensureDb } from "@/app/lib/firebase";
+import { ensureAuth, ensureDb } from "@/app/lib/firebase";
 import {
   collection,
   doc,
@@ -11,6 +11,7 @@ import {
   where,
   serverTimestamp,
   DocumentData,
+  QueryConstraint,
 } from "firebase/firestore";
 
 export type Package = {
@@ -28,6 +29,7 @@ export type SubPackage = {
   packageId: string;
   name: string;
   description?: string;
+  createdAt?: any;
   createdBy?: string;
   ownerId?: string;
   ownerEmail?: string | null;
@@ -71,6 +73,33 @@ function requireUser() {
   return user;
 }
 
+function isOwner(data: { ownerId?: string; createdBy?: string }, userId: string) {
+  if (data.ownerId) {
+    return data.ownerId === userId;
+  }
+  return data.createdBy === userId;
+}
+
+async function fetchOwnedDocs(
+  collectionPath: string,
+  userId: string,
+  extraConstraints: QueryConstraint[] = []
+) {
+  const primarySnap = await getDocs(
+    query(col(collectionPath), where("ownerId", "==", userId), ...extraConstraints)
+  );
+
+  if (primarySnap.docs.length > 0) {
+    return primarySnap.docs;
+  }
+
+  const fallbackSnap = await getDocs(
+    query(col(collectionPath), where("createdBy", "==", userId), ...extraConstraints)
+  );
+
+  return fallbackSnap.docs;
+}
+
 function col(path: string) {
   return collection(ensureDb(), path);
 }
@@ -78,14 +107,19 @@ function col(path: string) {
 export class PackageService {
   static async list(): Promise<Package[]> {
     const user = requireUser();
-    const snap = await getDocs(query(col("packages"), where("createdBy", "==", user.uid)));
-    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Package) }));
+    const docs = await fetchOwnedDocs("packages", user.uid);
+    return docs.map((d) => ({ id: d.id, ...(d.data() as Package) }));
   }
 
   static async get(id: string): Promise<Package | null> {
+    const user = requireUser();
     const d = await getDoc(doc(col("packages"), id));
     if (!d.exists()) return null;
-    return { id: d.id, ...(d.data() as Package) };
+    const data = d.data() as Package;
+    if (!isOwner(data, user.uid)) {
+      throw new Error("Você não tem permissão para acessar este pacote.");
+    }
+    return { id: d.id, ...data };
   }
 
   static async create(data: Package): Promise<string> {
@@ -101,10 +135,12 @@ export class PackageService {
   }
 
   static async update(id: string, data: Partial<Package>) {
+    requireUser();
     await updateDoc(doc(col("packages"), id), data as DocumentData);
   }
 
   static async remove(id: string) {
+    requireUser();
     await deleteDoc(doc(col("packages"), id));
   }
 }
@@ -112,19 +148,19 @@ export class PackageService {
 export class SubPackageService {
   static async listByPackage(packageId: string): Promise<SubPackage[]> {
     const user = requireUser();
-    const q = query(
-      col("subpackages"),
-      where("packageId", "==", packageId),
-      where("createdBy", "==", user.uid)
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as SubPackage) }));
+    const docs = await fetchOwnedDocs("subpackages", user.uid, [where("packageId", "==", packageId)]);
+    return docs.map((d) => ({ id: d.id, ...(d.data() as SubPackage) }));
   }
 
   static async get(id: string): Promise<SubPackage | null> {
+    const user = requireUser();
     const d = await getDoc(doc(col("subpackages"), id));
     if (!d.exists()) return null;
-    return { id: d.id, ...(d.data() as SubPackage) };
+    const data = d.data() as SubPackage;
+    if (!isOwner(data, user.uid)) {
+      throw new Error("Você não tem permissão para acessar este subpacote.");
+    }
+    return { id: d.id, ...data };
   }
 
   static async create(data: SubPackage): Promise<string> {
@@ -133,6 +169,7 @@ export class SubPackageService {
       col("subpackages"),
       {
         ...data,
+        createdAt: serverTimestamp(),
         createdBy: user.uid,
         ownerId: user.uid,
         ownerEmail: user.email ?? null,
@@ -145,30 +182,25 @@ export class SubPackageService {
 export class WorkOrderService {
   static async listByPackage(packageId: string): Promise<WorkOrder[]> {
     const user = requireUser();
-    const q = query(
-      col("workorders"),
-      where("packageId", "==", packageId),
-      where("createdBy", "==", user.uid)
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as WorkOrder) }));
+    const docs = await fetchOwnedDocs("workorders", user.uid, [where("packageId", "==", packageId)]);
+    return docs.map((d) => ({ id: d.id, ...(d.data() as WorkOrder) }));
   }
 
   static async listBySubPackage(subPackageId: string): Promise<WorkOrder[]> {
     const user = requireUser();
-    const q = query(
-      col("workorders"),
-      where("subPackageId", "==", subPackageId),
-      where("createdBy", "==", user.uid)
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as WorkOrder) }));
+    const docs = await fetchOwnedDocs("workorders", user.uid, [where("subPackageId", "==", subPackageId)]);
+    return docs.map((d) => ({ id: d.id, ...(d.data() as WorkOrder) }));
   }
 
   static async get(id: string): Promise<WorkOrder | null> {
+    const user = requireUser();
     const d = await getDoc(doc(col("workorders"), id));
     if (!d.exists()) return null;
-    return { id: d.id, ...(d.data() as WorkOrder) };
+    const data = d.data() as WorkOrder;
+    if (!isOwner(data, user.uid)) {
+      throw new Error("Você não tem permissão para acessar este serviço.");
+    }
+    return { id: d.id, ...data };
   }
 
   static async create(data: WorkOrder): Promise<string> {
@@ -184,6 +216,7 @@ export class WorkOrderService {
   }
 
   static async update(id: string, data: Partial<WorkOrder>) {
+    requireUser();
     await updateDoc(doc(col("workorders"), id), data as DocumentData);
   }
 }
@@ -191,13 +224,8 @@ export class WorkOrderService {
 export class WorkOrderLogService {
   static async listByWorkOrder(workOrderId: string): Promise<WorkOrderLog[]> {
     const user = requireUser();
-    const q = query(
-      col("workorderlogs"),
-      where("workOrderId", "==", workOrderId),
-      where("createdBy", "==", user.uid)
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as WorkOrderLog) }));
+    const docs = await fetchOwnedDocs("workorderlogs", user.uid, [where("workOrderId", "==", workOrderId)]);
+    return docs.map((d) => ({ id: d.id, ...(d.data() as WorkOrderLog) }));
   }
 
   static async add(log: WorkOrderLog): Promise<string> {
