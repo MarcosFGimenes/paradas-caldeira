@@ -2,7 +2,6 @@
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { SubPackage, WorkOrder, WorkOrderService } from "@/app/lib/firestore";
-import WorkOrderItem from "@/app/components/WorkOrderItem";
 import AddWorkOrderForm from "@/app/components/AddWorkOrderForm";
 import { useWorkOrderUpdate } from "@/app/hooks/useWorkOrder";
 
@@ -214,7 +213,6 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({ workOrder, 
           <span className="text-xs text-emerald-300">Salvo automaticamente</span>
         )}
       </div>
-      <WorkOrderItem workOrder={{ ...workOrder, progress }} />
     </div>
   );
 };

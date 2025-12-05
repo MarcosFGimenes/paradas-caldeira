@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -138,9 +139,17 @@ export default function PackagePage() {
                 <h1 className="text-2xl font-semibold text-white">{pkg.name}</h1>
                 {pkg.description && <p className="text-sm text-slate-400">{pkg.description}</p>}
               </div>
-              <span className="rounded-full bg-emerald-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200">
-                Aberto
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/"
+                  className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-400/60 hover:text-emerald-100"
+                >
+                  Voltar para a tela inicial
+                </Link>
+                <span className="rounded-full bg-emerald-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                  Aberto
+                </span>
+              </div>
             </div>
           </header>
         )}
