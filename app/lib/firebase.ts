@@ -2,7 +2,12 @@
 
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
+import {
+  Firestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 
 let firebaseApp: FirebaseApp | null = null;
 let auth: Auth | null = null;
@@ -44,7 +49,10 @@ const initFirebase = () => {
     if (!getApps().length) {
       firebaseApp = initializeApp(config);
       auth = getAuth(firebaseApp);
-      db = getFirestore(firebaseApp);
+      db = initializeFirestore(firebaseApp, {
+        experimentalAutoDetectLongPolling: true,
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      });
     }
   } catch (error) {
     initError = error as Error;

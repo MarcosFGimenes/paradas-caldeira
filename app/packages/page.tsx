@@ -1,15 +1,49 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
 import PackageList from "@/app/components/PackageList";
 import ImportExcelModal from "@/app/components/ImportExcelModal";
 import AddPackageModal from "@/app/components/AddPackageModal";
+import { ensureAuth } from "@/app/lib/firebase";
 
 export default function PackagesPage() {
   const [showImport, setShowImport] = useState(false);
   const [showNewPackage, setShowNewPackage] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    try {
+      const auth = ensureAuth();
+      setAuthorized(!!auth.currentUser);
+
+      unsubscribe = onAuthStateChanged(auth, (user) => {
+        const isLoggedIn = !!user;
+        setAuthorized(isLoggedIn);
+        if (!isLoggedIn) {
+          router.replace("/login");
+        }
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível verificar a autenticação.";
+      setAuthError(message);
+      setAuthorized(false);
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [router]);
 
   const handlePackageCreated = () => {
     setRefreshKey((prev) => prev + 1);
@@ -48,9 +82,21 @@ export default function PackagesPage() {
           </div>
         </header>
 
-        <main className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 shadow-2xl shadow-emerald-500/5 sm:p-6">
-          <PackageList refreshKey={refreshKey} />
-        </main>
+        {authError && (
+          <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+            {authError}
+          </div>
+        )}
+
+        {authorized ? (
+          <main className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 shadow-2xl shadow-emerald-500/5 sm:p-6">
+            <PackageList refreshKey={refreshKey} />
+          </main>
+        ) : (
+          <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 text-slate-200">
+            Verificando autenticação...
+          </div>
+        )}
       </div>
 
       {(showImport || showNewPackage) && (
