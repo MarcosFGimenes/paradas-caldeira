@@ -21,7 +21,15 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [subPackages, setSubPackages] = useState<SubPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<string>("");
-  const [selectedSubPackage, setSelectedSubPackage] = useState<string>("");
+  const [selectedSubPackage, setSelectedSubPackage] = useState<string>("auto");
+
+  const normalizeName = (value: string) =>
+    value
+      ?.toString()
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "");
 
   useEffect(() => {
     const fetchPackages = async () => {
@@ -43,7 +51,7 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
   useEffect(() => {
     if (!selectedPackage) {
       setSubPackages([]);
-      setSelectedSubPackage("");
+      setSelectedSubPackage("auto");
       return;
     }
 
@@ -87,11 +95,35 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
         return;
       }
 
+      const normalizedSubPackageLookup = new Map(
+        subPackages.map((sub) => [normalizeName(sub.name), sub.id])
+      );
+
+      const unmatchedOffices = new Set<string>();
+
       for (const p of parsed) {
+        const rawOffice = p.office?.toString();
+        const normalizedOffice = rawOffice ? normalizeName(rawOffice) : "";
+
+        let targetSubPackageId: string | undefined;
+
+        if (selectedSubPackage === "auto") {
+          if (normalizedOffice) {
+            const matchedSubPackageId = normalizedSubPackageLookup.get(normalizedOffice);
+            if (matchedSubPackageId) {
+              targetSubPackageId = matchedSubPackageId;
+            } else {
+              unmatchedOffices.add(rawOffice || "(vazio)");
+            }
+          }
+        } else if (selectedSubPackage) {
+          targetSubPackageId = selectedSubPackage;
+        }
+
         await WorkOrderService.create({
           title: p.title || p.task || "Importado",
           packageId: selectedPackage,
-          subPackageId: selectedSubPackage || undefined,
+          subPackageId: targetSubPackageId,
           status: p.status || "pending",
           office: p.office ?? null,
           osNumber: p.osNumber ?? null,
@@ -103,8 +135,17 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
         });
       }
 
+      const unmatchedText =
+        unmatchedOffices.size === 0
+          ? ""
+          : ` As oficinas sem subpacote correspondente foram mantidas sem vínculo: ${Array.from(
+              unmatchedOffices
+            ).join(", ")}.`;
+
       setMessage(
-        `Importadas ${parsed.length} tarefas para ${packages.find((p) => p.id === selectedPackage)?.name || "o pacote selecionado"}.`
+        `Importadas ${parsed.length} tarefas para ${
+          packages.find((p) => p.id === selectedPackage)?.name || "o pacote selecionado"
+        }.${unmatchedText}`
       );
     } catch (err: any) {
       setError(err?.message || String(err));
@@ -158,6 +199,7 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
             onChange={(e) => setSelectedSubPackage(e.target.value)}
             disabled={!subPackages.length}
           >
+            <option value="auto">Automático (coluna OFICINA)</option>
             <option value="">Sem subpacote</option>
             {subPackages.map((s) => (
               <option key={s.id} value={s.id}>
