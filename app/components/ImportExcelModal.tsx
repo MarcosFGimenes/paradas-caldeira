@@ -21,7 +21,6 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [subPackages, setSubPackages] = useState<SubPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<string>("");
-  const [selectedSubPackage, setSelectedSubPackage] = useState<string>("");
 
   useEffect(() => {
     const fetchPackages = async () => {
@@ -43,7 +42,6 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
   useEffect(() => {
     if (!selectedPackage) {
       setSubPackages([]);
-      setSelectedSubPackage("");
       return;
     }
 
@@ -69,6 +67,7 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
   };
 
   const onImport = async () => {
+    let shouldClose = false;
     if (!file) {
       setError("Selecione um arquivo para importar.");
       return;
@@ -87,17 +86,78 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
         return;
       }
 
+      const existingOrders = await WorkOrderService.listByPackage(selectedPackage);
+      let currentSubPackages = [...subPackages];
+      const normalizeOsNumber = (value: string | number | null | undefined) =>
+        value?.toString().trim().toLowerCase();
+      const normalizeText = (value: string | number | null | undefined) =>
+        value
+          ?.toString()
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/\p{Diacritic}+/gu, "");
+      const deriveOfficeKey = (officeValue?: string | number | null) => {
+        const normalized = normalizeText(officeValue);
+        if (!normalized) return undefined;
+        if (normalized.includes("mec")) return "mecanico";
+        if (normalized.includes("eletr")) return "eletrico";
+        return normalized;
+      };
+      const knownOsNumbers = new Set(
+        existingOrders
+          .map((order) => normalizeOsNumber(order.osNumber))
+          .filter(Boolean) as string[]
+      );
+
+      const ensureSubPackageForOffice = async (
+        officeKey: string | undefined | null
+      ): Promise<string | null> => {
+        if (!officeKey) return null;
+
+        const existing = currentSubPackages.find((sub) =>
+          normalizeText(sub.name)?.includes(officeKey)
+        );
+        if (existing?.id) {
+          return existing.id;
+        }
+
+        const newName =
+          officeKey === "mecanico"
+            ? "Mecânico"
+            : officeKey === "eletrico"
+              ? "Elétrico"
+              : officeKey;
+
+        const createdId = await SubPackageService.create({
+          packageId: selectedPackage,
+          name: newName,
+        });
+
+        const newSub = { id: createdId, packageId: selectedPackage, name: newName };
+        currentSubPackages = [...currentSubPackages, newSub];
+        setSubPackages(currentSubPackages);
+
+        return createdId;
+      };
+
+      let createdCount = 0;
+      let skippedCount = 0;
+
       for (const p of parsed) {
-        const normalizedOffice = p.office?.toString().trim().toLowerCase();
-        const matchedSubPackageId = normalizedOffice
-          ? subPackages.find((sub) => sub.name.trim().toLowerCase() === normalizedOffice)?.id
-          : undefined;
-        const targetSubPackageId = matchedSubPackageId || selectedSubPackage || undefined;
+        const normalizedOsNumber = normalizeOsNumber(p.osNumber ?? null);
+        if (normalizedOsNumber && knownOsNumbers.has(normalizedOsNumber)) {
+          skippedCount += 1;
+          continue;
+        }
+
+        const officeKey = deriveOfficeKey(p.office ?? null);
+        const matchedSubPackageId = await ensureSubPackageForOffice(officeKey);
 
         await WorkOrderService.create({
           title: p.title || p.task || "Importado",
           packageId: selectedPackage,
-          subPackageId: targetSubPackageId,
+          subPackageId: matchedSubPackageId,
           status: p.status || "pending",
           office: p.office ?? null,
           osNumber: p.osNumber ?? null,
@@ -107,15 +167,34 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
           responsible: p.responsible ?? null,
           sourceRow: p.rowIndex,
         });
+
+        if (normalizedOsNumber) {
+          knownOsNumbers.add(normalizedOsNumber);
+        }
+        createdCount += 1;
       }
 
-      setMessage(
-        `Importadas ${parsed.length} tarefas para ${packages.find((p) => p.id === selectedPackage)?.name || "o pacote selecionado"}.`
-      );
+      const packageName = packages.find((p) => p.id === selectedPackage)?.name || "o pacote selecionado";
+      if (!createdCount) {
+        setMessage(`Nenhuma nova O.S. para importar em ${packageName}. Todas já existem.`);
+        return;
+      }
+
+      const skippedText = skippedCount
+        ? ` ${skippedCount} linha${skippedCount > 1 ? "s" : ""} ignorada${
+            skippedCount > 1 ? "s" : ""
+          } por O.S. duplicada.`
+        : "";
+
+      setMessage(`Importadas ${createdCount} tarefas para ${packageName}.${skippedText}`);
+      shouldClose = true;
     } catch (err: any) {
       setError(err?.message || String(err));
     } finally {
       setLoading(false);
+      if (shouldClose) {
+        onClose?.();
+      }
     }
   };
 
@@ -155,23 +234,6 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
             ))}
           </select>
         </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-slate-200">Subpacote (opcional)</label>
-          <select
-            className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
-            value={selectedSubPackage}
-            onChange={(e) => setSelectedSubPackage(e.target.value)}
-            disabled={!subPackages.length}
-          >
-            <option value="">Sem subpacote</option>
-            {subPackages.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       <div className="space-y-2">
@@ -184,6 +246,7 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
         />
         <p className="text-xs text-slate-400">
           Use a linha 6 para os cabeçalhos e coloque os dados abaixo, como na planilha de exemplo enviada.
+          O subpacote é detectado automaticamente pela coluna OFICINA (MECÂNICO/ELÉTRICO).
         </p>
       </div>
 
