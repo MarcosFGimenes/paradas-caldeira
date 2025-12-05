@@ -88,10 +88,16 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
       }
 
       for (const p of parsed) {
+        const normalizedOffice = p.office?.toString().trim().toLowerCase();
+        const matchedSubPackageId = normalizedOffice
+          ? subPackages.find((sub) => sub.name.trim().toLowerCase() === normalizedOffice)?.id
+          : undefined;
+        const targetSubPackageId = matchedSubPackageId || selectedSubPackage || undefined;
+
         await WorkOrderService.create({
           title: p.title || p.task || "Importado",
           packageId: selectedPackage,
-          subPackageId: selectedSubPackage || undefined,
+          subPackageId: targetSubPackageId,
           status: p.status || "pending",
           office: p.office ?? null,
           osNumber: p.osNumber ?? null,

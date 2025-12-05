@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -116,6 +117,17 @@ export default function PackagePage() {
     }
   };
 
+  const handleWorkOrderProgressChange = (workOrderId: string, value: number) => {
+    setSubpackages((prev) =>
+      prev.map((item) => ({
+        ...item,
+        workOrders: item.workOrders.map((w) =>
+          w.id === workOrderId ? { ...w, progress: value } : w
+        ),
+      }))
+    );
+  };
+
   return (
     <div className="min-h-screen bg-transparent text-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10">
@@ -127,9 +139,17 @@ export default function PackagePage() {
                 <h1 className="text-2xl font-semibold text-white">{pkg.name}</h1>
                 {pkg.description && <p className="text-sm text-slate-400">{pkg.description}</p>}
               </div>
-              <span className="rounded-full bg-emerald-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200">
-                Aberto
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/"
+                  className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-400/60 hover:text-emerald-100"
+                >
+                  Voltar para a tela inicial
+                </Link>
+                <span className="rounded-full bg-emerald-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                  Aberto
+                </span>
+              </div>
             </div>
           </header>
         )}
@@ -167,6 +187,11 @@ export default function PackagePage() {
                 const total = workOrders.length;
                 const done = workOrders.filter((w) => w.status === "done").length;
                 const selected = selectedSubId === subPackage.id;
+                const average = total
+                  ? Math.round(
+                      workOrders.reduce((sum, w) => sum + (Number(w.progress) || 0), 0) / total
+                    )
+                  : 0;
 
                 return (
                   <button
@@ -184,6 +209,7 @@ export default function PackagePage() {
                         <p className="text-xs uppercase tracking-wide text-slate-400">Processos: {total}</p>
                         <p className="text-base font-semibold text-white">{subPackage.name}</p>
                         <p className="text-xs text-slate-400">Realizados: {done}</p>
+                        <p className="text-xs text-emerald-200">Progresso médio: {average}%</p>
                       </div>
                       <div className="rounded-lg bg-slate-900 px-3 py-2 text-right">
                         <p className="text-[11px] uppercase tracking-wide text-slate-400">Entrega prevista</p>
@@ -207,6 +233,7 @@ export default function PackagePage() {
               <SubPackageView
                 subPackage={selectedSubPackage.subPackage}
                 workOrders={selectedSubPackage.workOrders}
+                onWorkOrderProgressChange={handleWorkOrderProgressChange}
               />
             ) : (
               <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-center text-slate-400">
