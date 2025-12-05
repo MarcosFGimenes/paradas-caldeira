@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   PackageService,
   SubPackageService,
@@ -10,10 +11,14 @@ import {
   WorkOrder,
 } from "@/app/lib/firestore";
 import SubPackageView from "@/app/components/SubPackageView";
+import AddSubPackageModal from "@/app/components/AddSubPackageModal";
+import { ensureAuth } from "@/app/lib/firebase";
 
 export default function PackagePage() {
   const params = useParams();
   const id = params?.id as string | undefined;
+  const router = useRouter();
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [pkg, setPkg] = useState<PackageType | null>(null);
   const [subpackages, setSubpackages] = useState<
     { subPackage: SubPackage; workOrders: WorkOrder[] }[]
@@ -21,9 +26,39 @@ export default function PackagePage() {
   const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showNewSub, setShowNewSub] = useState(false);
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    try {
+      const auth = ensureAuth();
+      setAuthorized(!!auth.currentUser);
+
+      unsubscribe = onAuthStateChanged(auth, (user) => {
+        const isLoggedIn = !!user;
+        setAuthorized(isLoggedIn);
+        if (!isLoggedIn) {
+          router.replace("/login");
+        }
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível verificar a autenticação."
+      );
+      setAuthorized(false);
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [router]);
 
   useEffect(() => {
     if (!id) return;
+    if (!authorized) return;
     let mounted = true;
     const fetch = async () => {
       setLoading(true);
@@ -52,7 +87,7 @@ export default function PackagePage() {
     return () => {
       mounted = false;
     };
-  }, [id]);
+  }, [authorized, id]);
 
   if (!id) return <div>ID de pacote não fornecido</div>;
 
@@ -60,6 +95,26 @@ export default function PackagePage() {
     () => subpackages.find((s) => s.subPackage.id === selectedSubId),
     [selectedSubId, subpackages]
   );
+
+  if (authorized === false || authorized === null) {
+    return (
+      <div className="min-h-screen bg-transparent px-4 py-10 text-slate-200">
+        Verificando autenticação...
+      </div>
+    );
+  }
+
+  const handleSubPackageCreated = async (newId: string) => {
+    if (!newId) return;
+    try {
+      const newSub = await SubPackageService.get(newId);
+      if (!newSub) return;
+      setSubpackages((prev) => [...prev, { subPackage: newSub, workOrders: [] }]);
+      setSelectedSubId(newId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar subpacote criado.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-transparent text-white">
@@ -93,9 +148,18 @@ export default function PackagePage() {
                 <p className="text-sm text-slate-400">Lista de subpacotes</p>
                 <h3 className="text-lg font-semibold text-white">Organize por empresa/etapa</h3>
               </div>
-              <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-200">
-                {subpackages.length} itens
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
+                  onClick={() => setShowNewSub(true)}
+                >
+                  Adicionar subpacote
+                </button>
+                <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-200">
+                  {subpackages.length} itens
+                </span>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -151,6 +215,18 @@ export default function PackagePage() {
             )}
           </section>
         </div>
+
+        {showNewSub && (
+          <div className="fixed inset-0 z-10 grid place-items-center bg-black/60 p-4 backdrop-blur-md">
+            <div className="w-full max-w-3xl">
+              <AddSubPackageModal
+                packageId={id}
+                onClose={() => setShowNewSub(false)}
+                onCreated={handleSubPackageCreated}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
