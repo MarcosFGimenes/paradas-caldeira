@@ -67,6 +67,7 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
   };
 
   const onImport = async () => {
+    let shouldClose = false;
     if (!file) {
       setError("Selecione um arquivo para importar.");
       return;
@@ -156,10 +157,14 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
         : "";
 
       setMessage(`Importadas ${createdCount} tarefas para ${packageName}.${skippedText}`);
+      shouldClose = true;
     } catch (err: any) {
       setError(err?.message || String(err));
     } finally {
       setLoading(false);
+      if (shouldClose) {
+        onClose?.();
+      }
     }
   };
 
