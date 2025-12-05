@@ -41,6 +41,7 @@ export type WorkOrder = {
   subPackageId?: string;
   title: string;
   status?: string;
+  progress?: number;
   createdAt?: any;
   office?: string | number | null;
   osNumber?: string | number | null;
@@ -177,6 +178,16 @@ export class SubPackageService {
     );
     return ref.id;
   }
+
+  static async update(id: string, data: Partial<SubPackage>) {
+    requireUser();
+    await updateDoc(doc(col("subpackages"), id), data as DocumentData);
+  }
+
+  static async remove(id: string) {
+    requireUser();
+    await deleteDoc(doc(col("subpackages"), id));
+  }
 }
 
 export class WorkOrderService {
@@ -218,6 +229,11 @@ export class WorkOrderService {
   static async update(id: string, data: Partial<WorkOrder>) {
     requireUser();
     await updateDoc(doc(col("workorders"), id), data as DocumentData);
+  }
+
+  static async remove(id: string) {
+    requireUser();
+    await deleteDoc(doc(col("workorders"), id));
   }
 }
 
