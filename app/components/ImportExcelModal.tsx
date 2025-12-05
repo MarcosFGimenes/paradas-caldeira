@@ -121,8 +121,8 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
 
         const officeKey = deriveOfficeKey(p.office ?? null);
         const matchedSubPackageId = officeKey
-          ? subPackages.find((sub) => normalizeText(sub.name)?.includes(officeKey))?.id
-          : undefined;
+          ? subPackages.find((sub) => normalizeText(sub.name)?.includes(officeKey))?.id ?? null
+          : null;
 
         await WorkOrderService.create({
           title: p.title || p.task || "Importado",

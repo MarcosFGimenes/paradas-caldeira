@@ -105,6 +105,12 @@ function col(path: string) {
   return collection(ensureDb(), path);
 }
 
+function removeUndefined<T extends Record<string, any>>(data: T): T {
+  return Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined)
+  ) as T;
+}
+
 export class PackageService {
   static async list(): Promise<Package[]> {
     const user = requireUser();
@@ -216,13 +222,16 @@ export class WorkOrderService {
 
   static async create(data: WorkOrder): Promise<string> {
     const user = requireUser();
-    const ref = await addDoc(col("workorders"), {
-      ...data,
-      createdAt: serverTimestamp(),
-      createdBy: user.uid,
-      ownerId: user.uid,
-      ownerEmail: user.email ?? null,
-    } as DocumentData);
+    const ref = await addDoc(
+      col("workorders"),
+      removeUndefined({
+        ...data,
+        createdAt: serverTimestamp(),
+        createdBy: user.uid,
+        ownerId: user.uid,
+        ownerEmail: user.email ?? null,
+      }) as DocumentData
+    );
     return ref.id;
   }
 
