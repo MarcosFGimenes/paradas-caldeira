@@ -3,7 +3,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PackageService, Package as PackageType } from "@/app/lib/firestore";
 
-export const PackageList: React.FC = () => {
+type PackageListProps = {
+  refreshKey?: number;
+};
+
+export const PackageList: React.FC<PackageListProps> = ({ refreshKey }) => {
   const [packages, setPackages] = useState<PackageType[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +32,7 @@ export const PackageList: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   const sortedPackages = useMemo(() => {
     return [...packages].sort((a, b) => {
