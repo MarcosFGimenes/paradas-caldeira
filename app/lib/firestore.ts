@@ -35,6 +35,12 @@ export type WorkOrder = {
   title: string;
   status?: string;
   createdAt?: any;
+  office?: string | number | null;
+  osNumber?: string | number | null;
+  tag?: string | number | null;
+  machineName?: string | null;
+  task?: string | null;
+  responsible?: string | null;
   [key: string]: any;
 };
 
