@@ -14,6 +14,8 @@ import {
 import SubPackageView from "@/app/components/SubPackageView";
 import AddSubPackageModal from "@/app/components/AddSubPackageModal";
 import { ensureAuth } from "@/app/lib/firebase";
+import EditSubPackageModal from "@/app/components/EditSubPackageModal";
+import EditPackageModal from "@/app/components/EditPackageModal";
 
 export default function PackagePage() {
   const params = useParams();
@@ -28,6 +30,9 @@ export default function PackagePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNewSub, setShowNewSub] = useState(false);
+  const [editingSubPackage, setEditingSubPackage] = useState<SubPackage | null>(null);
+  const [editingPackage, setEditingPackage] = useState(false);
+  const [deletingPackage, setDeletingPackage] = useState(false);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -117,6 +122,56 @@ export default function PackagePage() {
     }
   };
 
+  const handleSubPackageUpdated = (updated: SubPackage) => {
+    setSubpackages((prev) =>
+      prev.map((item) =>
+        item.subPackage.id === updated.id ? { ...item, subPackage: { ...item.subPackage, ...updated } } : item
+      )
+    );
+    setEditingSubPackage(null);
+  };
+
+  const handleSubPackageRemoved = async (sub: SubPackage) => {
+    const confirmed = window.confirm(
+      `Deseja excluir o subpacote "${sub.name}" e remover os serviços associados?`
+    );
+    if (!confirmed || !sub.id) return;
+    const current = subpackages.find((s) => s.subPackage.id === sub.id);
+    const workOrdersToDelete = current?.workOrders || [];
+    try {
+      await Promise.all(workOrdersToDelete.map((w) => (w.id ? WorkOrderService.remove(w.id) : Promise.resolve())));
+      await SubPackageService.remove(sub.id);
+      setSubpackages((prev) => {
+        const nextList = prev.filter((item) => item.subPackage.id !== sub.id);
+        setSelectedSubId((prevSelected) => (prevSelected === sub.id ? nextList[0]?.subPackage.id || null : prevSelected));
+        return nextList;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao excluir subpacote.");
+    }
+  };
+
+  const handlePackageRemoved = async () => {
+    if (!pkg?.id) return;
+    const confirmed = window.confirm(
+      "Deseja excluir este pacote? Os subpacotes e serviços associados também serão removidos."
+    );
+    if (!confirmed) return;
+    setDeletingPackage(true);
+    try {
+      const workOrdersByPackage = await WorkOrderService.listByPackage(pkg.id);
+      await Promise.all(workOrdersByPackage.map((w) => (w.id ? WorkOrderService.remove(w.id) : Promise.resolve())));
+      const subList = await SubPackageService.listByPackage(pkg.id);
+      await Promise.all(subList.map((s) => (s.id ? SubPackageService.remove(s.id) : Promise.resolve())));
+      await PackageService.remove(pkg.id);
+      router.push("/packages");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao excluir pacote.");
+    } finally {
+      setDeletingPackage(false);
+    }
+  };
+
   const handleWorkOrderProgressChange = (workOrderId: string, value: number) => {
     setSubpackages((prev) =>
       prev.map((item) => ({
@@ -126,6 +181,29 @@ export default function PackagePage() {
         ),
       }))
     );
+  };
+
+  const handleWorkOrderUpdated = (workOrder: WorkOrder) => {
+    setSubpackages((prev) =>
+      prev.map((item) => ({
+        ...item,
+        workOrders: item.workOrders.map((w) => (w.id === workOrder.id ? { ...w, ...workOrder } : w)),
+      }))
+    );
+  };
+
+  const handleWorkOrderRemoved = (workOrderId: string) => {
+    setSubpackages((prev) =>
+      prev.map((item) => ({
+        ...item,
+        workOrders: item.workOrders.filter((w) => w.id !== workOrderId),
+      }))
+    );
+  };
+
+  const handlePackageUpdated = (updated: PackageType) => {
+    setPkg((prev) => (prev ? { ...prev, ...updated } : updated));
+    setEditingPackage(false);
   };
 
   return (
@@ -146,6 +224,21 @@ export default function PackagePage() {
                 >
                   Voltar para a tela inicial
                 </Link>
+                <button
+                  type="button"
+                  className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-amber-200 transition hover:border-amber-300/60 hover:text-amber-100"
+                  onClick={() => setEditingPackage(true)}
+                >
+                  Editar pacote
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:border-rose-300/60 hover:text-rose-100 disabled:opacity-60"
+                  disabled={deletingPackage}
+                  onClick={handlePackageRemoved}
+                >
+                  {deletingPackage ? "Excluindo..." : "Excluir pacote"}
+                </button>
                 <span className="rounded-full bg-emerald-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200">
                   Aberto
                 </span>
@@ -216,6 +309,28 @@ export default function PackagePage() {
                         <p className="text-sm font-semibold text-white">-</p>
                       </div>
                     </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 font-semibold text-amber-200 transition hover:border-amber-300/60 hover:text-amber-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingSubPackage(subPackage);
+                        }}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 font-semibold text-rose-200 transition hover:border-rose-300/60 hover:text-rose-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSubPackageRemoved(subPackage);
+                        }}
+                      >
+                        Excluir
+                      </button>
+                    </div>
                   </button>
                 );
               })}
@@ -234,6 +349,8 @@ export default function PackagePage() {
                 subPackage={selectedSubPackage.subPackage}
                 workOrders={selectedSubPackage.workOrders}
                 onWorkOrderProgressChange={handleWorkOrderProgressChange}
+                onWorkOrderRemoved={handleWorkOrderRemoved}
+                onWorkOrderUpdated={handleWorkOrderUpdated}
               />
             ) : (
               <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-center text-slate-400">
@@ -250,6 +367,30 @@ export default function PackagePage() {
                 packageId={id}
                 onClose={() => setShowNewSub(false)}
                 onCreated={handleSubPackageCreated}
+              />
+            </div>
+          </div>
+        )}
+
+        {editingSubPackage && (
+          <div className="fixed inset-0 z-20 grid place-items-center bg-black/70 p-4 backdrop-blur-md">
+            <div className="w-full max-w-3xl">
+              <EditSubPackageModal
+                subPackage={editingSubPackage}
+                onClose={() => setEditingSubPackage(null)}
+                onUpdated={handleSubPackageUpdated}
+              />
+            </div>
+          </div>
+        )}
+
+        {editingPackage && pkg && (
+          <div className="fixed inset-0 z-20 grid place-items-center bg-black/70 p-4 backdrop-blur-md">
+            <div className="w-full max-w-3xl">
+              <EditPackageModal
+                pkg={pkg}
+                onClose={() => setEditingPackage(false)}
+                onUpdated={handlePackageUpdated}
               />
             </div>
           </div>

@@ -5,14 +5,17 @@ import { PackageService, Package as PackageType } from "@/app/lib/firestore";
 
 type PackageListProps = {
   refreshKey?: number;
+  onEdit?: (pkg: PackageType) => void;
+  onDeleted?: () => void;
 };
 
-export const PackageList: React.FC<PackageListProps> = ({ refreshKey }) => {
+export const PackageList: React.FC<PackageListProps> = ({ refreshKey, onEdit, onDeleted }) => {
   const [packages, setPackages] = useState<PackageType[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [origin, setOrigin] = useState<string>("");
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -106,6 +109,40 @@ export const PackageList: React.FC<PackageListProps> = ({ refreshKey }) => {
                 }}
               >
                 {copiedId === p.id ? "Link copiado" : urlDisplayText(origin, p.id)}
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-white/10 bg-slate-800/80 px-3 py-1 font-semibold text-amber-200 transition hover:border-amber-300/60 hover:text-amber-100"
+                onClick={() => onEdit?.(p)}
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-white/10 bg-slate-800/80 px-3 py-1 font-semibold text-rose-200 transition hover:border-rose-300/60 hover:text-rose-100 disabled:opacity-60"
+                disabled={removingId === p.id}
+                onClick={async () => {
+                  if (!p.id) return;
+                  const confirmed = window.confirm(
+                    `Deseja excluir o pacote "${p.name}"? Essa ação remove apenas o pacote, mantendo os subpacotes e serviços associados para revisão manual.`
+                  );
+                  if (!confirmed) return;
+                  setRemovingId(p.id);
+                  try {
+                    await PackageService.remove(p.id);
+                    setPackages((prev) => prev.filter((pkg) => pkg.id !== p.id));
+                    onDeleted?.();
+                  } catch (err) {
+                    console.error(err);
+                    setError(
+                      err instanceof Error ? err.message : "Erro ao excluir o pacote."
+                    );
+                  } finally {
+                    setRemovingId(null);
+                  }
+                }}
+              >
+                {removingId === p.id ? "Excluindo..." : "Excluir"}
               </button>
             </div>
           </li>

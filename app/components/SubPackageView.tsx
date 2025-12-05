@@ -4,17 +4,22 @@ import React, { useEffect, useMemo, useState } from "react";
 import { SubPackage, WorkOrder, WorkOrderService } from "@/app/lib/firestore";
 import AddWorkOrderForm from "@/app/components/AddWorkOrderForm";
 import { useWorkOrderUpdate } from "@/app/hooks/useWorkOrder";
+import EditWorkOrderModal from "@/app/components/EditWorkOrderModal";
 
 type Props = {
   subPackage: SubPackage;
   workOrders?: WorkOrder[];
   onWorkOrderProgressChange?: (id: string, value: number) => void;
+  onWorkOrderRemoved?: (id: string) => void;
+  onWorkOrderUpdated?: (workOrder: WorkOrder) => void;
 };
 
 export const SubPackageView: React.FC<Props> = ({
   subPackage,
   workOrders,
   onWorkOrderProgressChange,
+  onWorkOrderRemoved,
+  onWorkOrderUpdated,
 }) => {
   const [workOrdersState, setWorkOrdersState] = useState<WorkOrder[]>(workOrders || []);
   const [loading, setLoading] = useState(false);
@@ -153,6 +158,16 @@ export const SubPackageView: React.FC<Props> = ({
                 onWorkOrderProgressChange?.(w.id, value);
               }
             }}
+            onDeleted={(id) => {
+              setWorkOrdersState((prev) => prev.filter((item) => item.id !== id));
+              onWorkOrderRemoved?.(id);
+            }}
+            onUpdated={(updated) => {
+              setWorkOrdersState((prev) =>
+                prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
+              );
+              onWorkOrderUpdated?.(updated);
+            }}
           />
         ))}
       </div>
@@ -163,14 +178,23 @@ export const SubPackageView: React.FC<Props> = ({
 type WorkOrderProgressRowProps = {
   workOrder: WorkOrder;
   onProgressUpdated?: (value: number) => void;
+  onDeleted?: (id: string) => void;
+  onUpdated?: (workOrder: WorkOrder) => void;
 };
 
-const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({ workOrder, onProgressUpdated }) => {
+const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
+  workOrder,
+  onProgressUpdated,
+  onDeleted,
+  onUpdated,
+}) => {
   const { update } = useWorkOrderUpdate();
   const [inputValue, setInputValue] = useState<string>(
     workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : ""
   );
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   useEffect(() => {
     setInputValue(workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : "");
@@ -233,6 +257,51 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({ workOrder, 
           <span className="text-xs text-emerald-300">Salvo automaticamente</span>
         )}
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 text-xs font-semibold text-amber-200 transition hover:border-amber-300/60 hover:text-amber-100"
+          onClick={() => setShowEdit(true)}
+        >
+          Editar serviço
+        </button>
+        <button
+          type="button"
+          className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:border-rose-300/60 hover:text-rose-100 disabled:opacity-60"
+          disabled={deleting}
+          onClick={async () => {
+            if (!workOrder.id) return;
+            const confirmed = window.confirm("Deseja excluir este serviço?");
+            if (!confirmed) return;
+            setDeleting(true);
+            try {
+              await WorkOrderService.remove(workOrder.id);
+              onDeleted?.(workOrder.id);
+            } catch (err) {
+              console.error(err);
+            } finally {
+              setDeleting(false);
+            }
+          }}
+        >
+          {deleting ? "Excluindo..." : "Excluir"}
+        </button>
+      </div>
+
+      {showEdit && (
+        <div className="fixed inset-0 z-20 grid place-items-center bg-black/70 p-4 backdrop-blur">
+          <div className="w-full max-w-3xl">
+            <EditWorkOrderModal
+              workOrder={workOrder}
+              onClose={() => setShowEdit(false)}
+              onUpdated={(updated) => {
+                onUpdated?.(updated);
+                setShowEdit(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

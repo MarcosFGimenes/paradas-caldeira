@@ -7,7 +7,9 @@ import { onAuthStateChanged } from "firebase/auth";
 import PackageList from "@/app/components/PackageList";
 import ImportExcelModal from "@/app/components/ImportExcelModal";
 import AddPackageModal from "@/app/components/AddPackageModal";
+import EditPackageModal from "@/app/components/EditPackageModal";
 import { ensureAuth } from "@/app/lib/firebase";
+import { Package } from "@/app/lib/firestore";
 
 export default function PackagesPage() {
   const [showImport, setShowImport] = useState(false);
@@ -15,6 +17,7 @@ export default function PackagesPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [editingPackage, setEditingPackage] = useState<Package | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -46,6 +49,11 @@ export default function PackagesPage() {
   }, [router]);
 
   const handlePackageCreated = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  const handlePackageUpdated = (pkg: Package) => {
+    setEditingPackage(null);
     setRefreshKey((prev) => prev + 1);
   };
 
@@ -90,7 +98,11 @@ export default function PackagesPage() {
 
         {authorized ? (
           <main className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 shadow-2xl shadow-emerald-500/5 sm:p-6">
-            <PackageList refreshKey={refreshKey} />
+            <PackageList
+              refreshKey={refreshKey}
+              onEdit={(pkg) => setEditingPackage(pkg)}
+              onDeleted={() => setRefreshKey((prev) => prev + 1)}
+            />
           </main>
         ) : (
           <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 text-slate-200">
@@ -114,6 +126,18 @@ export default function PackagesPage() {
               />
             </div>
           )}
+        </div>
+      )}
+
+      {editingPackage && (
+        <div className="fixed inset-0 z-10 grid place-items-center bg-black/60 p-4 backdrop-blur-md">
+          <div className="w-full max-w-3xl">
+            <EditPackageModal
+              pkg={editingPackage}
+              onClose={() => setEditingPackage(null)}
+              onUpdated={handlePackageUpdated}
+            />
+          </div>
         </div>
       )}
     </div>
