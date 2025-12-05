@@ -11,6 +11,14 @@ export const PackageList: React.FC<PackageListProps> = ({ refreshKey }) => {
   const [packages, setPackages] = useState<PackageType[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [origin, setOrigin] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin);
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -79,11 +87,37 @@ export const PackageList: React.FC<PackageListProps> = ({ refreshKey }) => {
                 </span>
               </div>
             </Link>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-300">
+              <span className="rounded-full bg-white/5 px-3 py-1 text-[11px] uppercase tracking-wide text-slate-300">
+                Link direto
+              </span>
+              <button
+                type="button"
+                className="rounded-full border border-white/10 bg-slate-800/80 px-3 py-1 font-semibold text-emerald-200 transition hover:border-emerald-300/60 hover:text-emerald-100"
+                onClick={async () => {
+                  const url = `${origin || (typeof window !== "undefined" ? window.location.origin : "")}/packages/${p.id}`;
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    setCopiedId(p.id || null);
+                    setTimeout(() => setCopiedId(null), 2000);
+                  } catch (err) {
+                    console.error("Erro ao copiar link", err);
+                  }
+                }}
+              >
+                {copiedId === p.id ? "Link copiado" : urlDisplayText(origin, p.id)}
+              </button>
+            </div>
           </li>
         ))}
       </ul>
     </div>
   );
 };
+
+function urlDisplayText(origin: string, id?: string) {
+  const base = origin || "URL";
+  return `${base}/packages/${id ?? ""}`;
+}
 
 export default PackageList;
