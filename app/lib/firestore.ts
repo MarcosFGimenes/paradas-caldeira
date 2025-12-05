@@ -38,7 +38,7 @@ export type SubPackage = {
 export type WorkOrder = {
   id?: string;
   packageId: string;
-  subPackageId?: string;
+  subPackageId?: string | null;
   title: string;
   status?: string;
   progress?: number;
