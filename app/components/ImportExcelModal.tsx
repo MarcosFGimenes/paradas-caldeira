@@ -11,9 +11,15 @@ import {
 
 type Props = {
   onClose?: () => void;
+  defaultPackageId?: string;
+  hidePackageSelector?: boolean;
 };
 
-export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
+export const ImportExcelModal: React.FC<Props> = ({
+  onClose,
+  defaultPackageId,
+  hidePackageSelector = false,
+}) => {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -38,6 +44,12 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
 
     fetchPackages();
   }, []);
+
+  useEffect(() => {
+    if (defaultPackageId) {
+      setSelectedPackage(defaultPackageId);
+    }
+  }, [defaultPackageId]);
 
   useEffect(() => {
     if (!selectedPackage) {
@@ -100,8 +112,8 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
       const deriveOfficeKey = (officeValue?: string | number | null) => {
         const normalized = normalizeText(officeValue);
         if (!normalized) return undefined;
-        if (normalized.includes("mec")) return "mecanica";
-        if (normalized.includes("eletr")) return "eletrica";
+        if (normalized.includes("mec")) return "mecanico";
+        if (normalized.includes("eletr")) return "eletrico";
         return normalized;
       };
       const knownOsNumbers = new Set(
@@ -123,10 +135,10 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
         }
 
         const newName =
-          officeKey === "mecanica"
-            ? "Mecânica"
-            : officeKey === "eletrica"
-              ? "Elétrica"
+          officeKey === "mecanico"
+            ? "Mecânico"
+            : officeKey === "eletrico"
+              ? "Elétrico"
               : officeKey;
 
         const createdId = await SubPackageService.create({
@@ -174,7 +186,8 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
         createdCount += 1;
       }
 
-      const packageName = packages.find((p) => p.id === selectedPackage)?.name || "o pacote selecionado";
+      const packageName =
+        packages.find((p) => p.id === selectedPackage)?.name || "o pacote selecionado";
       if (!createdCount) {
         setMessage(`Nenhuma nova O.S. para importar em ${packageName}. Todas já existem.`);
         return;
@@ -218,23 +231,36 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
         </button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-slate-200">Pacote</label>
-          <select
-            className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
-            value={selectedPackage}
-            onChange={(e) => setSelectedPackage(e.target.value)}
-          >
-            <option value="">Selecione um pacote</option>
-            {packages.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+      {!hidePackageSelector && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-200">Pacote</label>
+            <select
+              className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
+              value={selectedPackage}
+              onChange={(e) => setSelectedPackage(e.target.value)}
+            >
+              <option value="">Selecione um pacote</option>
+              {packages.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+      )}
+
+      {hidePackageSelector && selectedPackage && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1">
+            <p className="text-sm uppercase tracking-wide text-slate-400">Pacote</p>
+            <p className="rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm font-semibold text-white">
+              {packages.find((p) => p.id === selectedPackage)?.name || "Pacote selecionado"}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         <label className="text-sm font-semibold text-slate-200">Arquivo (.xlsx)</label>
