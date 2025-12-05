@@ -87,6 +87,7 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
       }
 
       const existingOrders = await WorkOrderService.listByPackage(selectedPackage);
+      let currentSubPackages = [...subPackages];
       const normalizeOsNumber = (value: string | number | null | undefined) =>
         value?.toString().trim().toLowerCase();
       const normalizeText = (value: string | number | null | undefined) =>
@@ -109,6 +110,37 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
           .filter(Boolean) as string[]
       );
 
+      const ensureSubPackageForOffice = async (
+        officeKey: string | undefined | null
+      ): Promise<string | null> => {
+        if (!officeKey) return null;
+
+        const existing = currentSubPackages.find((sub) =>
+          normalizeText(sub.name)?.includes(officeKey)
+        );
+        if (existing?.id) {
+          return existing.id;
+        }
+
+        const newName =
+          officeKey === "mecanica"
+            ? "Mecânica"
+            : officeKey === "eletrica"
+              ? "Elétrica"
+              : officeKey;
+
+        const createdId = await SubPackageService.create({
+          packageId: selectedPackage,
+          name: newName,
+        });
+
+        const newSub = { id: createdId, packageId: selectedPackage, name: newName };
+        currentSubPackages = [...currentSubPackages, newSub];
+        setSubPackages(currentSubPackages);
+
+        return createdId;
+      };
+
       let createdCount = 0;
       let skippedCount = 0;
 
@@ -120,9 +152,7 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
         }
 
         const officeKey = deriveOfficeKey(p.office ?? null);
-        const matchedSubPackageId = officeKey
-          ? subPackages.find((sub) => normalizeText(sub.name)?.includes(officeKey))?.id ?? null
-          : null;
+        const matchedSubPackageId = await ensureSubPackageForOffice(officeKey);
 
         await WorkOrderService.create({
           title: p.title || p.task || "Importado",
