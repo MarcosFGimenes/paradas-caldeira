@@ -28,6 +28,7 @@ const AddWorkOrderForm: React.FC<AddWorkOrderFormProps> = ({ packageId, subPacka
         packageId,
         subPackageId,
         status: "todo",
+        progress: 0,
       });
       onCreated?.(id, title);
       setTitle("");

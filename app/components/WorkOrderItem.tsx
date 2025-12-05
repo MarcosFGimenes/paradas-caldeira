@@ -10,6 +10,9 @@ type Props = {
 export const WorkOrderItem: React.FC<Props> = ({ workOrder }) => {
   const { update, loading } = useWorkOrderUpdate();
   const [status, setStatus] = useState<string>(workOrder.status || "pending");
+  const progressValue = Number.isFinite(Number(workOrder.progress))
+    ? Number(workOrder.progress)
+    : 0;
 
   useEffect(() => {
     setStatus(workOrder.status || "pending");
@@ -24,12 +27,16 @@ export const WorkOrderItem: React.FC<Props> = ({ workOrder }) => {
 
   return (
     <div className="rounded-xl border border-white/5 bg-white/5 px-4 py-3 shadow-sm shadow-emerald-500/5">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
-          <p className="text-base font-semibold text-white">{workOrder.title}</p>
-          <p className="text-xs text-slate-400">ID: {workOrder.id}</p>
+          <p className="text-sm font-semibold text-emerald-200">O.S: {workOrder.osNumber ?? "-"}</p>
+          <p className="text-base font-semibold text-white">{workOrder.machineName || "Sem máquina"}</p>
+          <p className="text-sm text-slate-300">Responsável: {workOrder.responsible || "Não informado"}</p>
+          <p className="text-sm text-slate-400">{workOrder.task || workOrder.title}</p>
+          <p className="text-sm font-semibold text-emerald-200">Progresso: {progressValue}%</p>
+          <p className="text-xs text-slate-500">ID: {workOrder.id}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3">
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
               status === "done"
