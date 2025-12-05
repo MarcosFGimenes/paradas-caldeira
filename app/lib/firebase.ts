@@ -2,7 +2,12 @@
 
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
+import {
+  Firestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 
 let firebaseApp: FirebaseApp | null = null;
 let auth: Auth | null = null;
@@ -17,6 +22,7 @@ const loadConfig = () => {
     storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
   } as const;
 
   const missing = Object.entries(config)
@@ -43,7 +49,11 @@ const initFirebase = () => {
     if (!getApps().length) {
       firebaseApp = initializeApp(config);
       auth = getAuth(firebaseApp);
-      db = getFirestore(firebaseApp);
+      db = initializeFirestore(firebaseApp, {
+        experimentalAutoDetectLongPolling: true,
+        useFetchStreams: false,
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      });
     }
   } catch (error) {
     initError = error as Error;
@@ -63,9 +73,20 @@ const ensureDb = () => {
   return currentDb;
 };
 
+const ensureAuth = () => {
+  const { auth: currentAuth } = initFirebase();
+  if (initError) throw initError;
+  if (!currentAuth) {
+    throw new Error(
+      "Firebase Auth não foi inicializado. Confirme se as variáveis de ambiente estão definidas e se o código executa no cliente."
+    );
+  }
+  return currentAuth;
+};
+
 initFirebase();
 
-export { initFirebase, ensureDb };
+export { initFirebase, ensureAuth, ensureDb };
 export type { FirebaseApp, Auth, Firestore };
 export default {
   get app() {
