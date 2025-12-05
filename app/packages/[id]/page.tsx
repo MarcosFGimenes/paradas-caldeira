@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   PackageService,
   SubPackageService,
@@ -11,10 +12,13 @@ import {
 } from "@/app/lib/firestore";
 import SubPackageView from "@/app/components/SubPackageView";
 import AddSubPackageModal from "@/app/components/AddSubPackageModal";
+import { ensureAuth } from "@/app/lib/firebase";
 
 export default function PackagePage() {
   const params = useParams();
   const id = params?.id as string | undefined;
+  const router = useRouter();
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [pkg, setPkg] = useState<PackageType | null>(null);
   const [subpackages, setSubpackages] = useState<
     { subPackage: SubPackage; workOrders: WorkOrder[] }[]
@@ -25,7 +29,36 @@ export default function PackagePage() {
   const [showNewSub, setShowNewSub] = useState(false);
 
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    try {
+      const auth = ensureAuth();
+      setAuthorized(!!auth.currentUser);
+
+      unsubscribe = onAuthStateChanged(auth, (user) => {
+        const isLoggedIn = !!user;
+        setAuthorized(isLoggedIn);
+        if (!isLoggedIn) {
+          router.replace("/login");
+        }
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível verificar a autenticação."
+      );
+      setAuthorized(false);
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [router]);
+
+  useEffect(() => {
     if (!id) return;
+    if (!authorized) return;
     let mounted = true;
     const fetch = async () => {
       setLoading(true);
@@ -54,7 +87,7 @@ export default function PackagePage() {
     return () => {
       mounted = false;
     };
-  }, [id]);
+  }, [authorized, id]);
 
   if (!id) return <div>ID de pacote não fornecido</div>;
 
@@ -62,6 +95,14 @@ export default function PackagePage() {
     () => subpackages.find((s) => s.subPackage.id === selectedSubId),
     [selectedSubId, subpackages]
   );
+
+  if (authorized === false || authorized === null) {
+    return (
+      <div className="min-h-screen bg-transparent px-4 py-10 text-slate-200">
+        Verificando autenticação...
+      </div>
+    );
+  }
 
   const handleSubPackageCreated = async (newId: string) => {
     if (!newId) return;
