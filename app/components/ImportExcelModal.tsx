@@ -100,8 +100,8 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
       const deriveOfficeKey = (officeValue?: string | number | null) => {
         const normalized = normalizeText(officeValue);
         if (!normalized) return undefined;
-        if (normalized.includes("mec")) return "mecanica";
-        if (normalized.includes("eletr")) return "eletrica";
+        if (normalized.includes("mec")) return "mecanico";
+        if (normalized.includes("eletr")) return "eletrico";
         return normalized;
       };
       const knownOsNumbers = new Set(
@@ -123,10 +123,10 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
         }
 
         const newName =
-          officeKey === "mecanica"
-            ? "Mecânica"
-            : officeKey === "eletrica"
-              ? "Elétrica"
+          officeKey === "mecanico"
+            ? "Mecânico"
+            : officeKey === "eletrico"
+              ? "Elétrico"
               : officeKey;
 
         const createdId = await SubPackageService.create({
