@@ -87,7 +87,25 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
         return;
       }
 
+      const existingOrders = await WorkOrderService.listByPackage(selectedPackage);
+      const normalizeOsNumber = (value: string | number | null | undefined) =>
+        value?.toString().trim().toLowerCase();
+      const knownOsNumbers = new Set(
+        existingOrders
+          .map((order) => normalizeOsNumber(order.osNumber))
+          .filter(Boolean) as string[]
+      );
+
+      let createdCount = 0;
+      let skippedCount = 0;
+
       for (const p of parsed) {
+        const normalizedOsNumber = normalizeOsNumber(p.osNumber ?? null);
+        if (normalizedOsNumber && knownOsNumbers.has(normalizedOsNumber)) {
+          skippedCount += 1;
+          continue;
+        }
+
         const normalizedOffice = p.office?.toString().trim().toLowerCase();
         const matchedSubPackageId = normalizedOffice
           ? subPackages.find((sub) => sub.name.trim().toLowerCase() === normalizedOffice)?.id
@@ -107,11 +125,26 @@ export const ImportExcelModal: React.FC<Props> = ({ onClose }) => {
           responsible: p.responsible ?? null,
           sourceRow: p.rowIndex,
         });
+
+        if (normalizedOsNumber) {
+          knownOsNumbers.add(normalizedOsNumber);
+        }
+        createdCount += 1;
       }
 
-      setMessage(
-        `Importadas ${parsed.length} tarefas para ${packages.find((p) => p.id === selectedPackage)?.name || "o pacote selecionado"}.`
-      );
+      const packageName = packages.find((p) => p.id === selectedPackage)?.name || "o pacote selecionado";
+      if (!createdCount) {
+        setMessage(`Nenhuma nova O.S. para importar em ${packageName}. Todas já existem.`);
+        return;
+      }
+
+      const skippedText = skippedCount
+        ? ` ${skippedCount} linha${skippedCount > 1 ? "s" : ""} ignorada${
+            skippedCount > 1 ? "s" : ""
+          } por O.S. duplicada.`
+        : "";
+
+      setMessage(`Importadas ${createdCount} tarefas para ${packageName}.${skippedText}`);
     } catch (err: any) {
       setError(err?.message || String(err));
     } finally {
