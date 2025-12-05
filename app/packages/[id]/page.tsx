@@ -313,10 +313,6 @@ export default function PackagePage() {
                         <p className="text-xs text-slate-400">Realizados: {done}</p>
                         <p className="text-xs text-emerald-200">Progresso médio: {average}%</p>
                       </div>
-                      <div className="rounded-lg bg-slate-900 px-3 py-2 text-right">
-                        <p className="text-[11px] uppercase tracking-wide text-slate-400">Entrega prevista</p>
-                        <p className="text-sm font-semibold text-white">-</p>
-                      </div>
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                       <button

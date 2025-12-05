@@ -199,7 +199,13 @@ export const ImportExcelModal: React.FC<Props> = ({
           } por O.S. duplicada.`
         : "";
 
-      setMessage(`Importadas ${createdCount} tarefas para ${packageName}.${skippedText}`);
+      const summary = `Importadas ${createdCount} tarefas para ${packageName}.${skippedText}`;
+
+      if (skippedCount) {
+        alert(summary);
+      }
+
+      setMessage(summary);
       shouldClose = true;
     } catch (err: any) {
       setError(err?.message || String(err));
