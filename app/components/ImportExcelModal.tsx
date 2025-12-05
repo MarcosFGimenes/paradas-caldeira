@@ -109,6 +109,23 @@ export const ImportExcelModal: React.FC<Props> = ({
           .toLowerCase()
           .normalize("NFD")
           .replace(/\p{Diacritic}+/gu, "");
+      const rowSignature = (data: {
+        office?: string | number | null;
+        osNumber?: string | number | null;
+        tag?: string | number | null;
+        machineName?: string | null;
+        task?: string | null;
+        title?: string | null;
+        responsible?: string | null;
+      }) =>
+        [
+          normalizeText(data.office ?? null) ?? "",
+          normalizeOsNumber(data.osNumber ?? null) ?? "",
+          normalizeText(data.tag ?? null) ?? "",
+          normalizeText(data.machineName ?? null) ?? "",
+          normalizeText(data.task ?? data.title ?? null) ?? "",
+          normalizeText(data.responsible ?? null) ?? "",
+        ].join("|");
       const deriveOfficeKey = (officeValue?: string | number | null) => {
         const normalized = normalizeText(officeValue);
         if (!normalized) return undefined;
@@ -116,10 +133,8 @@ export const ImportExcelModal: React.FC<Props> = ({
         if (normalized.includes("eletr")) return "eletrico";
         return normalized;
       };
-      const knownOsNumbers = new Set(
-        existingOrders
-          .map((order) => normalizeOsNumber(order.osNumber))
-          .filter(Boolean) as string[]
+      const knownRows = new Set(
+        existingOrders.map((order) => rowSignature(order)).filter(Boolean)
       );
 
       const ensureSubPackageForOffice = async (
@@ -157,8 +172,8 @@ export const ImportExcelModal: React.FC<Props> = ({
       let skippedCount = 0;
 
       for (const p of parsed) {
-        const normalizedOsNumber = normalizeOsNumber(p.osNumber ?? null);
-        if (normalizedOsNumber && knownOsNumbers.has(normalizedOsNumber)) {
+        const signature = rowSignature(p);
+        if (signature && knownRows.has(signature)) {
           skippedCount += 1;
           continue;
         }
@@ -180,8 +195,8 @@ export const ImportExcelModal: React.FC<Props> = ({
           sourceRow: p.rowIndex,
         });
 
-        if (normalizedOsNumber) {
-          knownOsNumbers.add(normalizedOsNumber);
+        if (signature) {
+          knownRows.add(signature);
         }
         createdCount += 1;
       }
@@ -196,7 +211,7 @@ export const ImportExcelModal: React.FC<Props> = ({
       const skippedText = skippedCount
         ? ` ${skippedCount} linha${skippedCount > 1 ? "s" : ""} ignorada${
             skippedCount > 1 ? "s" : ""
-          } por O.S. duplicada.`
+          } por duplicidade completa.`
         : "";
 
       const summary = `Importadas ${createdCount} tarefas para ${packageName}.${skippedText}`;
