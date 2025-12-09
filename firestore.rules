@@ -20,35 +20,23 @@ service cloud.firestore {
 
     // Leituras são públicas para permitir o compartilhamento de links sem exigir autenticação.
     match /packages/{id} {
-      allow read: if true;
-      allow create, update, delete: if hasValidString("name", 200) &&
-        hasValidString("description", 2000) &&
-        hasValidStatus();
+      allow read, write: if true;
     }
 
     match /subpackages/{id} {
-      allow read: if true;
-      allow create, update, delete: if hasValidString("packageId", 128) &&
-        hasValidString("name", 200) &&
-        hasValidString("description", 2000);
+      allow read, write: if true;
     }
 
     match /workorders/{id} {
-      allow read: if true;
-      allow create, update, delete: if hasValidString("packageId", 128) &&
-        hasValidString("subPackageId", 128) &&
-        hasValidString("title", 500) &&
-        hasValidString("status", 50);
+      allow read, write: if true;
     }
 
     match /workorderlogs/{id} {
-      allow read: if true;
-      allow create, update, delete: if hasValidString("workOrderId", 128) &&
-        hasValidString("message", 2000);
+      allow read, write: if true;
     }
 
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
   }
 }

@@ -202,6 +202,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     setInputValue(workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : "");
@@ -221,9 +222,16 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
 
     const handler = setTimeout(async () => {
       setSaving(true);
-      await update(workOrder.id!, { progress: normalized });
-      onProgressUpdated?.(normalized);
-      setSaving(false);
+      setSaveError(null);
+      try {
+        await update(workOrder.id!, { progress: normalized });
+        onProgressUpdated?.(normalized);
+      } catch (err) {
+        console.error(err);
+        setSaveError("Erro ao salvar. Tente novamente.");
+      } finally {
+        setSaving(false);
+      }
     }, 600);
 
     return () => clearTimeout(handler);
@@ -257,6 +265,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
                     .replace(/[^0-9]/g, "")
                     .replace(/^0+(?=\d)/, "");
                   setInputValue(nextValue);
+                  setSaveError(null);
                 }
               : undefined
           }
@@ -266,6 +275,8 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
         />
         {saving ? (
           <span className="text-xs text-slate-400">Salvando...</span>
+        ) : saveError ? (
+          <span className="text-xs text-rose-300">{saveError}</span>
         ) : (
           <span className="text-xs text-emerald-300">Salvo automaticamente</span>
         )}
