@@ -12,6 +12,7 @@ type Props = {
   onWorkOrderProgressChange?: (id: string, value: number) => void;
   onWorkOrderRemoved?: (id: string) => void;
   onWorkOrderUpdated?: (workOrder: WorkOrder) => void;
+  allowManage?: boolean;
 };
 
 export const SubPackageView: React.FC<Props> = ({
@@ -20,6 +21,7 @@ export const SubPackageView: React.FC<Props> = ({
   onWorkOrderProgressChange,
   onWorkOrderRemoved,
   onWorkOrderUpdated,
+  allowManage = true,
 }) => {
   const [workOrdersState, setWorkOrdersState] = useState<WorkOrder[]>(workOrders || []);
   const [loading, setLoading] = useState(false);
@@ -122,11 +124,17 @@ export const SubPackageView: React.FC<Props> = ({
         Atualize o progresso digitando a porcentagem de cada serviço. Os valores são salvos automaticamente.
       </div>
 
-      <AddWorkOrderForm
-        packageId={subPackage.packageId}
-        subPackageId={subPackage.id || ""}
-        onCreated={handleServiceCreated}
-      />
+      {allowManage ? (
+        <AddWorkOrderForm
+          packageId={subPackage.packageId}
+          subPackageId={subPackage.id || ""}
+          onCreated={handleServiceCreated}
+        />
+      ) : (
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+          Faça login para adicionar novos serviços a este subpacote.
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{error}</div>
@@ -164,6 +172,7 @@ export const SubPackageView: React.FC<Props> = ({
               );
               onWorkOrderUpdated?.(updated);
             }}
+            allowManage={allowManage}
           />
         ))}
       </div>
@@ -176,6 +185,7 @@ type WorkOrderProgressRowProps = {
   onProgressUpdated?: (value: number) => void;
   onDeleted?: (id: string) => void;
   onUpdated?: (workOrder: WorkOrder) => void;
+  allowManage?: boolean;
 };
 
 const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
@@ -183,6 +193,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
   onProgressUpdated,
   onDeleted,
   onUpdated,
+  allowManage = true,
 }) => {
   const { update } = useWorkOrderUpdate();
   const [inputValue, setInputValue] = useState<string>(
@@ -191,12 +202,14 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     setInputValue(workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : "");
   }, [workOrder.progress]);
 
   useEffect(() => {
+    if (!allowManage) return;
     if (!workOrder.id) return;
     if (!inputValue.trim()) return;
 
@@ -209,13 +222,20 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
 
     const handler = setTimeout(async () => {
       setSaving(true);
-      await update(workOrder.id!, { progress: normalized });
-      onProgressUpdated?.(normalized);
-      setSaving(false);
+      setSaveError(null);
+      try {
+        await update(workOrder.id!, { progress: normalized });
+        onProgressUpdated?.(normalized);
+      } catch (err) {
+        console.error(err);
+        setSaveError("Erro ao salvar. Tente novamente.");
+      } finally {
+        setSaving(false);
+      }
     }, 600);
 
     return () => clearTimeout(handler);
-  }, [inputValue, update, workOrder.id, workOrder.progress, onProgressUpdated]);
+  }, [allowManage, inputValue, update, workOrder.id, workOrder.progress, onProgressUpdated]);
 
   return (
     <div className="space-y-3 rounded-xl border border-white/5 bg-white/5 px-4 py-3 shadow-sm shadow-emerald-500/5">
@@ -238,53 +258,63 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
           inputMode="numeric"
           pattern="[0-9]*"
           value={inputValue}
-          onChange={(e) => {
-            const nextValue = e.target.value
-              .replace(/[^0-9]/g, "")
-              .replace(/^0+(?=\d)/, "");
-            setInputValue(nextValue);
-          }}
+          onChange={
+            allowManage
+              ? (e) => {
+                  const nextValue = e.target.value
+                    .replace(/[^0-9]/g, "")
+                    .replace(/^0+(?=\d)/, "");
+                  setInputValue(nextValue);
+                  setSaveError(null);
+                }
+              : undefined
+          }
           className="w-28 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
           placeholder="0"
+          disabled={!allowManage}
         />
         {saving ? (
           <span className="text-xs text-slate-400">Salvando...</span>
+        ) : saveError ? (
+          <span className="text-xs text-rose-300">{saveError}</span>
         ) : (
           <span className="text-xs text-emerald-300">Salvo automaticamente</span>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 text-xs font-semibold text-amber-200 transition hover:border-amber-300/60 hover:text-amber-100"
-          onClick={() => setShowEdit(true)}
-        >
-          Editar serviço
-        </button>
-        <button
-          type="button"
-          className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:border-rose-300/60 hover:text-rose-100 disabled:opacity-60"
-          disabled={deleting}
-          onClick={async () => {
-            if (!workOrder.id) return;
-            const confirmed = window.confirm("Deseja excluir este serviço?");
-            if (!confirmed) return;
-            setDeleting(true);
-            try {
-              await WorkOrderService.remove(workOrder.id);
-              onDeleted?.(workOrder.id);
-            } catch (err) {
-              console.error(err);
-            } finally {
-              setDeleting(false);
-            }
-          }}
-        >
-          {deleting ? "Excluindo..." : "Excluir"}
-        </button>
-      </div>
+      {allowManage && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 text-xs font-semibold text-amber-200 transition hover:border-amber-300/60 hover:text-amber-100"
+            onClick={() => setShowEdit(true)}
+          >
+            Editar serviço
+          </button>
+          <button
+            type="button"
+            className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:border-rose-300/60 hover:text-rose-100 disabled:opacity-60"
+            disabled={deleting}
+            onClick={async () => {
+              if (!workOrder.id) return;
+              const confirmed = window.confirm("Deseja excluir este serviço?");
+              if (!confirmed) return;
+              setDeleting(true);
+              try {
+                await WorkOrderService.remove(workOrder.id);
+                onDeleted?.(workOrder.id);
+              } catch (err) {
+                console.error(err);
+              } finally {
+                setDeleting(false);
+              }
+            }}
+          >
+            {deleting ? "Excluindo..." : "Excluir"}
+          </button>
+        </div>
+      )}
 
-      {showEdit && (
+      {allowManage && showEdit && (
         <div className="fixed inset-0 z-20 grid place-items-center bg-black/70 p-4 backdrop-blur">
           <div className="w-full max-w-3xl">
             <EditWorkOrderModal
