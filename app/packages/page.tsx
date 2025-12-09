@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import PackageList from "@/app/components/PackageList";
 import ImportExcelModal from "@/app/components/ImportExcelModal";
@@ -15,10 +14,9 @@ export default function PackagesPage() {
   const [showImport, setShowImport] = useState(false);
   const [showNewPackage, setShowNewPackage] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const [authorized, setAuthorized] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -28,11 +26,7 @@ export default function PackagesPage() {
       setAuthorized(!!auth.currentUser);
 
       unsubscribe = onAuthStateChanged(auth, (user) => {
-        const isLoggedIn = !!user;
-        setAuthorized(isLoggedIn);
-        if (!isLoggedIn) {
-          router.replace("/login");
-        }
+        setAuthorized(!!user);
       });
     } catch (error) {
       const message =
@@ -40,13 +34,12 @@ export default function PackagesPage() {
           ? error.message
           : "Não foi possível verificar a autenticação.";
       setAuthError(message);
-      setAuthorized(false);
     }
 
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [router]);
+  }, []);
 
   const handlePackageCreated = () => {
     setRefreshKey((prev) => prev + 1);
@@ -66,27 +59,38 @@ export default function PackagesPage() {
             <h1 className="text-2xl font-semibold text-white">Todos os pacotes</h1>
             <p className="text-sm text-slate-400">Acesse e organize todos os pacotes cadastrados.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/"
               className="text-sm font-semibold text-emerald-200 underline decoration-emerald-500/60 decoration-2 underline-offset-4 transition hover:text-emerald-100"
             >
               Voltar para início
             </Link>
-            <button
-              type="button"
-              className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
-              onClick={() => setShowNewPackage(true)}
-            >
-              Adicionar pacote
-            </button>
-            <button
-              type="button"
-              className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
-              onClick={() => setShowImport(true)}
-            >
-              Importar Excel
-            </button>
+            {authorized ? (
+              <>
+                <button
+                  type="button"
+                  className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
+                  onClick={() => setShowNewPackage(true)}
+                >
+                  Adicionar pacote
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
+                  onClick={() => setShowImport(true)}
+                >
+                  Importar Excel
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-emerald-400/50 hover:text-emerald-100"
+              >
+                Entrar para gerenciar
+              </Link>
+            )}
           </div>
         </header>
 
@@ -96,22 +100,17 @@ export default function PackagesPage() {
           </div>
         )}
 
-        {authorized ? (
-          <main className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 shadow-2xl shadow-emerald-500/5 sm:p-6">
-            <PackageList
-              refreshKey={refreshKey}
-              onEdit={(pkg) => setEditingPackage(pkg)}
-              onDeleted={() => setRefreshKey((prev) => prev + 1)}
-            />
-          </main>
-        ) : (
-          <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 text-slate-200">
-            Verificando autenticação...
-          </div>
-        )}
+        <main className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 shadow-2xl shadow-emerald-500/5 sm:p-6">
+          <PackageList
+            refreshKey={refreshKey}
+            onEdit={authorized ? (pkg) => setEditingPackage(pkg) : undefined}
+            onDeleted={() => setRefreshKey((prev) => prev + 1)}
+            allowManage={authorized}
+          />
+        </main>
       </div>
 
-      {(showImport || showNewPackage) && (
+      {authorized && (showImport || showNewPackage) && (
         <div className="fixed inset-0 z-10 grid place-items-center bg-black/60 p-4 backdrop-blur-md">
           {showImport && (
             <div className="w-full max-w-3xl rounded-2xl border border-white/10 bg-slate-900/90 p-4 shadow-2xl">
@@ -129,7 +128,7 @@ export default function PackagesPage() {
         </div>
       )}
 
-      {editingPackage && (
+      {authorized && editingPackage && (
         <div className="fixed inset-0 z-10 grid place-items-center bg-black/60 p-4 backdrop-blur-md">
           <div className="w-full max-w-3xl">
             <EditPackageModal
