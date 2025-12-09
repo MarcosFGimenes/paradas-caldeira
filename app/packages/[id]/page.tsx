@@ -22,7 +22,7 @@ export default function PackagePage() {
   const params = useParams();
   const id = params?.id as string | undefined;
   const router = useRouter();
-  const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const [authorized, setAuthorized] = useState(false);
   const [pkg, setPkg] = useState<PackageType | null>(null);
   const [subpackages, setSubpackages] = useState<
     { subPackage: SubPackage; workOrders: WorkOrder[] }[]
@@ -44,11 +44,7 @@ export default function PackagePage() {
       setAuthorized(!!auth.currentUser);
 
       unsubscribe = onAuthStateChanged(auth, (user) => {
-        const isLoggedIn = !!user;
-        setAuthorized(isLoggedIn);
-        if (!isLoggedIn) {
-          router.replace("/login");
-        }
+        setAuthorized(!!user);
       });
     } catch (err) {
       setError(
@@ -56,17 +52,15 @@ export default function PackagePage() {
           ? err.message
           : "Não foi possível verificar a autenticação."
       );
-      setAuthorized(false);
     }
 
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
-    if (!authorized) return;
     let mounted = true;
     const fetch = async () => {
       setLoading(true);
@@ -95,7 +89,9 @@ export default function PackagePage() {
     return () => {
       mounted = false;
     };
-  }, [authorized, id]);
+  }, [id]);
+
+  const canManage = authorized;
 
   if (!id) return <div>ID de pacote não fornecido</div>;
 
@@ -103,14 +99,6 @@ export default function PackagePage() {
     () => subpackages.find((s) => s.subPackage.id === selectedSubId),
     [selectedSubId, subpackages]
   );
-
-  if (authorized === false || authorized === null) {
-    return (
-      <div className="min-h-screen bg-transparent px-4 py-10 text-slate-200">
-        Verificando autenticação...
-      </div>
-    );
-  }
 
   const handleSubPackageCreated = async (newId: string) => {
     if (!newId) return;
@@ -134,6 +122,10 @@ export default function PackagePage() {
   };
 
   const handleSubPackageRemoved = async (sub: SubPackage) => {
+    if (!canManage) {
+      setError("É necessário estar autenticado para excluir subpacotes.");
+      return;
+    }
     const confirmed = window.confirm(
       `Deseja excluir o subpacote "${sub.name}" e remover os serviços associados?`
     );
@@ -154,6 +146,10 @@ export default function PackagePage() {
   };
 
   const handlePackageRemoved = async () => {
+    if (!canManage) {
+      setError("É necessário estar autenticado para excluir pacotes.");
+      return;
+    }
     if (!pkg?.id) return;
     const confirmed = window.confirm(
       "Deseja excluir este pacote? Os subpacotes e serviços associados também serão removidos."
@@ -226,28 +222,36 @@ export default function PackagePage() {
                 >
                   Voltar para a tela inicial
                 </Link>
-                <button
-                  type="button"
-                  className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-amber-200 transition hover:border-amber-300/60 hover:text-amber-100"
-                  onClick={() => setEditingPackage(true)}
-                >
-                  Editar pacote
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
-                  onClick={() => setShowImport(true)}
-                >
-                  Importar Excel
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:border-rose-300/60 hover:text-rose-100 disabled:opacity-60"
-                  disabled={deletingPackage}
-                  onClick={handlePackageRemoved}
-                >
-                  {deletingPackage ? "Excluindo..." : "Excluir pacote"}
-                </button>
+                {canManage ? (
+                  <>
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-amber-200 transition hover:border-amber-300/60 hover:text-amber-100"
+                      onClick={() => setEditingPackage(true)}
+                    >
+                      Editar pacote
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
+                      onClick={() => setShowImport(true)}
+                    >
+                      Importar Excel
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-rose-200 transition hover:border-rose-300/60 hover:text-rose-100 disabled:opacity-60"
+                      disabled={deletingPackage}
+                      onClick={handlePackageRemoved}
+                    >
+                      {deletingPackage ? "Excluindo..." : "Excluir pacote"}
+                    </button>
+                  </>
+                ) : (
+                  <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200/90">
+                    Visualização somente leitura
+                  </span>
+                )}
                 <span className="rounded-full bg-emerald-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200">
                   Aberto
                 </span>
@@ -271,13 +275,22 @@ export default function PackagePage() {
                 <h3 className="text-lg font-semibold text-white">Organize por empresa/etapa</h3>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
-                  onClick={() => setShowNewSub(true)}
-                >
-                  Adicionar subpacote
-                </button>
+                {canManage ? (
+                  <button
+                    type="button"
+                    className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
+                    onClick={() => setShowNewSub(true)}
+                  >
+                    Adicionar subpacote
+                  </button>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-300/60 hover:text-emerald-100"
+                  >
+                    Faça login para gerenciar
+                  </Link>
+                )}
                 <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-200">
                   {subpackages.length} itens
                 </span>
@@ -314,28 +327,30 @@ export default function PackagePage() {
                         <p className="text-xs text-emerald-200">Progresso médio: {average}%</p>
                       </div>
                     </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                      <button
-                        type="button"
-                        className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 font-semibold text-amber-200 transition hover:border-amber-300/60 hover:text-amber-100"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingSubPackage(subPackage);
-                        }}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 font-semibold text-rose-200 transition hover:border-rose-300/60 hover:text-rose-100"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSubPackageRemoved(subPackage);
-                        }}
-                      >
-                        Excluir
-                      </button>
-                    </div>
+                    {canManage && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                        <button
+                          type="button"
+                          className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 font-semibold text-amber-200 transition hover:border-amber-300/60 hover:text-amber-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingSubPackage(subPackage);
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-white/10 bg-slate-800 px-3 py-1 font-semibold text-rose-200 transition hover:border-rose-300/60 hover:text-rose-100"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSubPackageRemoved(subPackage);
+                          }}
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -365,7 +380,7 @@ export default function PackagePage() {
           </section>
         </div>
 
-        {showNewSub && (
+        {canManage && showNewSub && (
           <div className="fixed inset-0 z-10 grid place-items-center bg-black/60 p-4 backdrop-blur-md">
             <div className="w-full max-w-3xl">
               <AddSubPackageModal
@@ -377,7 +392,7 @@ export default function PackagePage() {
           </div>
         )}
 
-        {editingSubPackage && (
+        {canManage && editingSubPackage && (
           <div className="fixed inset-0 z-20 grid place-items-center bg-black/70 p-4 backdrop-blur-md">
             <div className="w-full max-w-3xl">
               <EditSubPackageModal
@@ -389,7 +404,7 @@ export default function PackagePage() {
           </div>
         )}
 
-        {editingPackage && pkg && (
+        {canManage && editingPackage && pkg && (
           <div className="fixed inset-0 z-20 grid place-items-center bg-black/70 p-4 backdrop-blur-md">
             <div className="w-full max-w-3xl">
               <EditPackageModal
@@ -401,7 +416,7 @@ export default function PackagePage() {
           </div>
         )}
 
-        {showImport && pkg && (
+        {canManage && showImport && pkg && (
           <div className="fixed inset-0 z-30 grid place-items-center bg-black/70 p-4 backdrop-blur-md">
             <div className="w-full max-w-3xl">
               <ImportExcelModal
