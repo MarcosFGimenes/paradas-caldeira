@@ -64,13 +64,13 @@ export type WorkOrderLog = {
   ownerEmail?: string | null;
 };
 
-function requireUser() {
-  const auth = ensureAuth();
-  const user = auth.currentUser;
-  if (!user) {
-    throw new Error("Usuário não autenticado. Faça login para continuar.");
+function getCurrentUser() {
+  try {
+    return ensureAuth().currentUser;
+  } catch (error) {
+    console.warn("Não foi possível obter o usuário atual:", error);
+    return null;
   }
-  return user;
 }
 
 function col(path: string) {
@@ -96,24 +96,22 @@ export class PackageService {
   }
 
   static async create(data: Package): Promise<string> {
-    const user = requireUser();
+    const user = getCurrentUser();
     const ref = await addDoc(col("packages"), {
       ...data,
       createdAt: serverTimestamp(),
-      createdBy: user.uid,
-      ownerId: user.uid,
-      ownerEmail: user.email ?? null,
+      createdBy: user?.uid ?? null,
+      ownerId: user?.uid ?? null,
+      ownerEmail: user?.email ?? null,
     } as DocumentData);
     return ref.id;
   }
 
   static async update(id: string, data: Partial<Package>) {
-    requireUser();
     await updateDoc(doc(col("packages"), id), data as DocumentData);
   }
 
   static async remove(id: string) {
-    requireUser();
     await deleteDoc(doc(col("packages"), id));
   }
 }
@@ -131,27 +129,25 @@ export class SubPackageService {
   }
 
   static async create(data: SubPackage): Promise<string> {
-    const user = requireUser();
+    const user = getCurrentUser();
     const ref = await addDoc(
       col("subpackages"),
       {
         ...data,
         createdAt: serverTimestamp(),
-        createdBy: user.uid,
-        ownerId: user.uid,
-        ownerEmail: user.email ?? null,
+        createdBy: user?.uid ?? null,
+        ownerId: user?.uid ?? null,
+        ownerEmail: user?.email ?? null,
       } as DocumentData
     );
     return ref.id;
   }
 
   static async update(id: string, data: Partial<SubPackage>) {
-    requireUser();
     await updateDoc(doc(col("subpackages"), id), data as DocumentData);
   }
 
   static async remove(id: string) {
-    requireUser();
     await deleteDoc(doc(col("subpackages"), id));
   }
 }
@@ -174,27 +170,25 @@ export class WorkOrderService {
   }
 
   static async create(data: WorkOrder): Promise<string> {
-    const user = requireUser();
+    const user = getCurrentUser();
     const ref = await addDoc(
       col("workorders"),
       removeUndefined({
         ...data,
         createdAt: serverTimestamp(),
-        createdBy: user.uid,
-        ownerId: user.uid,
-        ownerEmail: user.email ?? null,
+        createdBy: user?.uid ?? null,
+        ownerId: user?.uid ?? null,
+        ownerEmail: user?.email ?? null,
       }) as DocumentData
     );
     return ref.id;
   }
 
   static async update(id: string, data: Partial<WorkOrder>) {
-    requireUser();
     await updateDoc(doc(col("workorders"), id), data as DocumentData);
   }
 
   static async remove(id: string) {
-    requireUser();
     await deleteDoc(doc(col("workorders"), id));
   }
 }
@@ -206,13 +200,13 @@ export class WorkOrderLogService {
   }
 
   static async add(log: WorkOrderLog): Promise<string> {
-    const user = requireUser();
+    const user = getCurrentUser();
     const ref = await addDoc(col("workorderlogs"), {
       ...log,
       createdAt: serverTimestamp(),
-      createdBy: user.uid,
-      ownerId: user.uid,
-      ownerEmail: user.email ?? null,
+      createdBy: user?.uid ?? null,
+      ownerId: user?.uid ?? null,
+      ownerEmail: user?.email ?? null,
     } as DocumentData);
     return ref.id;
   }
