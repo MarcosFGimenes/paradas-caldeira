@@ -27,8 +27,9 @@ service cloud.firestore {
         request.resource.data.createdBy == request.auth.uid;
     }
 
+    // Leituras são públicas para permitir o compartilhamento de links sem exigir autenticação.
     match /packages/{id} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update, delete: if isSignedIn() &&
         hasValidString("name", 200) &&
         hasValidString("description", 2000) &&
@@ -37,7 +38,7 @@ service cloud.firestore {
     }
 
     match /subpackages/{id} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update, delete: if isSignedIn() &&
         hasValidString("packageId", 128) &&
         hasValidString("name", 200) &&
@@ -45,7 +46,7 @@ service cloud.firestore {
     }
 
     match /workorders/{id} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update, delete: if isSignedIn() &&
         hasValidString("packageId", 128) &&
         hasValidString("subPackageId", 128) &&
@@ -54,7 +55,7 @@ service cloud.firestore {
     }
 
     match /workorderlogs/{id} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create: if isSignedIn() &&
         hasValidString("workOrderId", 128) &&
         hasValidString("message", 2000);
