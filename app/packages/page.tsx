@@ -15,6 +15,7 @@ export default function PackagesPage() {
   const [showNewPackage, setShowNewPackage] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [authorized, setAuthorized] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
 
@@ -24,9 +25,11 @@ export default function PackagesPage() {
     try {
       const auth = ensureAuth();
       setAuthorized(!!auth.currentUser);
+      setAuthChecked(true);
 
       unsubscribe = onAuthStateChanged(auth, (user) => {
         setAuthorized(!!user);
+        setAuthChecked(true);
       });
     } catch (error) {
       const message =
@@ -34,6 +37,7 @@ export default function PackagesPage() {
           ? error.message
           : "Não foi possível verificar a autenticação.";
       setAuthError(message);
+      setAuthChecked(true);
     }
 
     return () => {
@@ -100,14 +104,35 @@ export default function PackagesPage() {
           </div>
         )}
 
-        <main className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 shadow-2xl shadow-emerald-500/5 sm:p-6">
-          <PackageList
-            refreshKey={refreshKey}
-            onEdit={authorized ? (pkg) => setEditingPackage(pkg) : undefined}
-            onDeleted={() => setRefreshKey((prev) => prev + 1)}
-            allowManage={authorized}
-          />
-        </main>
+        {!authChecked ? (
+          <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 text-sm text-slate-200 shadow-2xl shadow-emerald-500/5">
+            Verificando autenticação...
+          </div>
+        ) : authorized ? (
+          <main className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 shadow-2xl shadow-emerald-500/5 sm:p-6">
+            <PackageList
+              refreshKey={refreshKey}
+              onEdit={(pkg) => setEditingPackage(pkg)}
+              onDeleted={() => setRefreshKey((prev) => prev + 1)}
+              allowManage
+            />
+          </main>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-slate-900/60 p-6 text-slate-200 shadow-2xl shadow-emerald-500/5">
+            <p className="text-lg font-semibold text-white">Acesso restrito</p>
+            <p className="text-sm text-slate-300">
+              Faça login para visualizar e gerenciar pacotes. O catálogo público continua disponível na página inicial.
+            </p>
+            <div className="mt-4">
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-white"
+              >
+                Ir para login
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
 
       {authorized && (showImport || showNewPackage) && (

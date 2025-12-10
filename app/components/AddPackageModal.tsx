@@ -11,6 +11,7 @@ interface AddPackageModalProps {
 const AddPackageModal: React.FC<AddPackageModalProps> = ({ onClose, onCreated }) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [status, setStatus] = useState<"open" | "closed">("open");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +24,7 @@ const AddPackageModal: React.FC<AddPackageModalProps> = ({ onClose, onCreated })
 
     setLoading(true);
     try {
-      const id = await PackageService.create({ name, description });
+      const id = await PackageService.create({ name, description, status });
       onCreated?.(id);
       onClose();
     } catch (err) {
@@ -70,6 +71,18 @@ const AddPackageModal: React.FC<AddPackageModalProps> = ({ onClose, onCreated })
             placeholder="Descreva o objetivo do pacote"
             rows={3}
           />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-slate-200">Status</label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as "open" | "closed")}
+            className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
+          >
+            <option value="open">Aberto</option>
+            <option value="closed">Fechado</option>
+          </select>
         </div>
 
         {error && (
