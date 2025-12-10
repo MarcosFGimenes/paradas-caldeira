@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SubPackage, WorkOrder, WorkOrderService } from "@/app/lib/firestore";
 import AddWorkOrderForm from "@/app/components/AddWorkOrderForm";
 import { useWorkOrderUpdate } from "@/app/hooks/useWorkOrder";
@@ -165,7 +165,7 @@ export const SubPackageView: React.FC<Props> = ({
         Atualize o progresso digitando a porcentagem de cada serviço. Os valores são salvos automaticamente.
       </div>
 
-      {allowManage ? (
+      {allowManage && (
         <div className="space-y-3">
           <button
             type="button"
@@ -181,10 +181,6 @@ export const SubPackageView: React.FC<Props> = ({
               onCreated={handleServiceCreated}
             />
           )}
-        </div>
-      ) : (
-        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-          Faça login para adicionar novos serviços a este subpacote.
         </div>
       )}
 
@@ -277,7 +273,9 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
     return `${day}/${month} ${hours}:${minutes}`;
   };
 
-  const [lastSavedProgress, setLastSavedProgress] = useState<number>(Number(workOrder.progress) || 0);
+  const initialProgress = Number(workOrder.progress) || 0;
+  const [previousProgress, setPreviousProgress] = useState<number>(initialProgress);
+  const [lastSavedProgress, setLastSavedProgress] = useState<number>(initialProgress);
   const [inputValue, setInputValue] = useState<string>(
     workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : ""
   );
@@ -286,12 +284,33 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
   const [showEdit, setShowEdit] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(parseDate(workOrder.updatedAt));
+  const previousProgressRef = useRef<number>(initialProgress);
+  const previousIdRef = useRef<string | undefined>(workOrder.id);
 
   useEffect(() => {
+    const incomingProgress = Number(workOrder.progress) || 0;
+    const incomingUpdatedAt = parseDate(workOrder.updatedAt);
+
     setInputValue(workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : "");
-    setLastSavedProgress(Number(workOrder.progress) || 0);
-    setLastUpdatedAt(parseDate(workOrder.updatedAt));
-  }, [workOrder.progress, workOrder.updatedAt]);
+    setLastUpdatedAt(incomingUpdatedAt);
+
+    const isNewWorkOrder = workOrder.id !== previousIdRef.current;
+    const progressChanged = incomingProgress !== previousProgressRef.current;
+
+    if (isNewWorkOrder) {
+      previousIdRef.current = workOrder.id;
+      previousProgressRef.current = incomingProgress;
+      setPreviousProgress(incomingProgress);
+      setLastSavedProgress(incomingProgress);
+      return;
+    }
+
+    if (progressChanged) {
+      setPreviousProgress(previousProgressRef.current);
+      setLastSavedProgress(incomingProgress);
+      previousProgressRef.current = incomingProgress;
+    }
+  }, [workOrder.id, workOrder.progress, workOrder.updatedAt]);
 
   useEffect(() => {
     if (!allowProgressUpdate) return;
@@ -310,7 +329,9 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
       setSaveError(null);
       try {
         await update(workOrder.id!, { progress: normalized });
+        setPreviousProgress(lastSavedProgress);
         setLastSavedProgress(normalized);
+        previousProgressRef.current = normalized;
         setLastUpdatedAt(new Date());
         onProgressUpdated?.(normalized);
       } catch (err) {
@@ -334,7 +355,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
-          Anterior: {lastSavedProgress}%
+          Anterior: {previousProgress}%
         </span>
         <label className="text-sm font-semibold text-slate-200" htmlFor={`progress-${workOrder.id}`}>
           Progresso (%)
