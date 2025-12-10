@@ -175,7 +175,7 @@ export default function PackagePage() {
       prev.map((item) => ({
         ...item,
         workOrders: item.workOrders.map((w) =>
-          w.id === workOrderId ? { ...w, progress: value } : w
+          w.id === workOrderId ? { ...w, progress: value, updatedAt: new Date() } : w
         ),
       }))
     );
@@ -371,6 +371,8 @@ export default function PackagePage() {
                 onWorkOrderProgressChange={handleWorkOrderProgressChange}
                 onWorkOrderRemoved={handleWorkOrderRemoved}
                 onWorkOrderUpdated={handleWorkOrderUpdated}
+                allowManage={canManage}
+                allowProgressUpdate
               />
             ) : (
               <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-center text-slate-400">

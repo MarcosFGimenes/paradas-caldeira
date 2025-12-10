@@ -13,6 +13,7 @@ type Props = {
   onWorkOrderRemoved?: (id: string) => void;
   onWorkOrderUpdated?: (workOrder: WorkOrder) => void;
   allowManage?: boolean;
+  allowProgressUpdate?: boolean;
 };
 
 export const SubPackageView: React.FC<Props> = ({
@@ -22,14 +23,35 @@ export const SubPackageView: React.FC<Props> = ({
   onWorkOrderRemoved,
   onWorkOrderUpdated,
   allowManage = true,
+  allowProgressUpdate = true,
 }) => {
-  const [workOrdersState, setWorkOrdersState] = useState<WorkOrder[]>(workOrders || []);
+  const getOrderValue = (item: WorkOrder) => {
+    if (typeof item.importOrder === "number") return item.importOrder;
+    if (item.createdAt?.seconds) return item.createdAt.seconds * 1000;
+    if (typeof item.createdAt === "number") return item.createdAt;
+    if (item.createdAt instanceof Date) return item.createdAt.getTime();
+    if (typeof item.createdAt === "string") {
+      const parsed = Date.parse(item.createdAt);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    return 0;
+  };
+
+  const sortWorkOrders = (list: WorkOrder[]) =>
+    [...list].sort((a, b) => {
+      const aOrder = getOrderValue(a);
+      const bOrder = getOrderValue(b);
+      if (aOrder === bOrder) return 0;
+      return aOrder < bOrder ? -1 : 1;
+    });
+
+  const [workOrdersState, setWorkOrdersState] = useState<WorkOrder[]>(workOrders ? sortWorkOrders(workOrders) : []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (workOrders) {
-      setWorkOrdersState(workOrders);
+      setWorkOrdersState(sortWorkOrders(workOrders));
       setError(null);
       setLoading(false);
       return;
@@ -41,7 +63,7 @@ export const SubPackageView: React.FC<Props> = ({
       try {
         const list = await WorkOrderService.listBySubPackage(subPackage.id || "");
         if (!mounted) return;
-        setWorkOrdersState(list);
+        setWorkOrdersState(sortWorkOrders(list));
         setError(null);
       } catch (err) {
         if (!mounted) return;
@@ -67,17 +89,8 @@ export const SubPackageView: React.FC<Props> = ({
     return Math.round(total / workOrdersState.length);
   }, [workOrdersState]);
 
-  const handleServiceCreated = (id: string, title: string) => {
-    setWorkOrdersState((prev) => [
-      ...prev,
-      {
-        id,
-        title,
-        packageId: subPackage.packageId,
-        subPackageId: subPackage.id,
-        status: "todo",
-      },
-    ]);
+  const handleServiceCreated = (created: WorkOrder) => {
+    setWorkOrdersState((prev) => sortWorkOrders([...prev, created]));
   };
 
   return (
@@ -156,7 +169,9 @@ export const SubPackageView: React.FC<Props> = ({
             workOrder={w}
             onProgressUpdated={(value) => {
               setWorkOrdersState((prev) =>
-                prev.map((item) => (item.id === w.id ? { ...item, progress: value } : item))
+                prev.map((item) =>
+                  item.id === w.id ? { ...item, progress: value, updatedAt: new Date() } : item
+                )
               );
               if (w.id) {
                 onWorkOrderProgressChange?.(w.id, value);
@@ -173,6 +188,7 @@ export const SubPackageView: React.FC<Props> = ({
               onWorkOrderUpdated?.(updated);
             }}
             allowManage={allowManage}
+            allowProgressUpdate={allowProgressUpdate}
           />
         ))}
       </div>
@@ -186,6 +202,7 @@ type WorkOrderProgressRowProps = {
   onDeleted?: (id: string) => void;
   onUpdated?: (workOrder: WorkOrder) => void;
   allowManage?: boolean;
+  allowProgressUpdate?: boolean;
 };
 
 const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
@@ -194,8 +211,30 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
   onDeleted,
   onUpdated,
   allowManage = true,
+  allowProgressUpdate = true,
 }) => {
   const { update } = useWorkOrderUpdate();
+  const parseDate = (value: any): Date | null => {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof value === "object" && typeof value.toDate === "function") return value.toDate();
+    if (typeof value === "object" && typeof value.seconds === "number") {
+      return new Date(value.seconds * 1000);
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const formatShortDateTime = (date: Date | null) => {
+    if (!date) return "Sem registro";
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${day}/${month} ${hours}:${minutes}`;
+  };
+
+  const [lastSavedProgress, setLastSavedProgress] = useState<number>(Number(workOrder.progress) || 0);
   const [inputValue, setInputValue] = useState<string>(
     workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : ""
   );
@@ -203,13 +242,16 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
   const [deleting, setDeleting] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(parseDate(workOrder.updatedAt));
 
   useEffect(() => {
     setInputValue(workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : "");
-  }, [workOrder.progress]);
+    setLastSavedProgress(Number(workOrder.progress) || 0);
+    setLastUpdatedAt(parseDate(workOrder.updatedAt));
+  }, [workOrder.progress, workOrder.updatedAt]);
 
   useEffect(() => {
-    if (!allowManage) return;
+    if (!allowProgressUpdate) return;
     if (!workOrder.id) return;
     if (!inputValue.trim()) return;
 
@@ -225,6 +267,8 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
       setSaveError(null);
       try {
         await update(workOrder.id!, { progress: normalized });
+        setLastSavedProgress(normalized);
+        setLastUpdatedAt(new Date());
         onProgressUpdated?.(normalized);
       } catch (err) {
         console.error(err);
@@ -235,7 +279,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
     }, 600);
 
     return () => clearTimeout(handler);
-  }, [allowManage, inputValue, update, workOrder.id, workOrder.progress, onProgressUpdated]);
+  }, [allowProgressUpdate, inputValue, update, workOrder.id, workOrder.progress, onProgressUpdated]);
 
   return (
     <div className="space-y-3 rounded-xl border border-white/5 bg-white/5 px-4 py-3 shadow-sm shadow-emerald-500/5">
@@ -247,7 +291,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
-          Anterior: {Number(workOrder.progress) || 0}%
+          Anterior: {lastSavedProgress}%
         </span>
         <label className="text-sm font-semibold text-slate-200" htmlFor={`progress-${workOrder.id}`}>
           Progresso (%)
@@ -259,7 +303,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
           pattern="[0-9]*"
           value={inputValue}
           onChange={
-            allowManage
+            allowProgressUpdate
               ? (e) => {
                   const nextValue = e.target.value
                     .replace(/[^0-9]/g, "")
@@ -271,7 +315,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
           }
           className="w-28 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
           placeholder="0"
-          disabled={!allowManage}
+          disabled={!allowProgressUpdate}
         />
         {saving ? (
           <span className="text-xs text-slate-400">Salvando...</span>
@@ -281,6 +325,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
           <span className="text-xs text-emerald-300">Salvo automaticamente</span>
         )}
       </div>
+      <p className="text-xs text-slate-400">Última atualização: {formatShortDateTime(lastUpdatedAt)}</p>
       {allowManage && (
         <div className="flex flex-wrap items-center gap-2">
           <button
