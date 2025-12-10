@@ -165,7 +165,7 @@ export const SubPackageView: React.FC<Props> = ({
         Atualize o progresso digitando a porcentagem de cada serviço. Os valores são salvos automaticamente.
       </div>
 
-      {allowManage ? (
+      {allowManage && (
         <div className="space-y-3">
           <button
             type="button"
@@ -181,10 +181,6 @@ export const SubPackageView: React.FC<Props> = ({
               onCreated={handleServiceCreated}
             />
           )}
-        </div>
-      ) : (
-        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-          Faça login para adicionar novos serviços a este subpacote.
         </div>
       )}
 
