@@ -12,6 +12,7 @@ interface EditPackageModalProps {
 const EditPackageModal: React.FC<EditPackageModalProps> = ({ pkg, onClose, onUpdated }) => {
   const [name, setName] = useState(pkg.name || "");
   const [description, setDescription] = useState(pkg.description || "");
+  const [status, setStatus] = useState<"open" | "closed">(pkg.status || "open");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,8 +25,8 @@ const EditPackageModal: React.FC<EditPackageModalProps> = ({ pkg, onClose, onUpd
 
     setLoading(true);
     try {
-      await PackageService.update(pkg.id!, { name, description });
-      onUpdated?.({ ...pkg, name, description });
+      await PackageService.update(pkg.id!, { name, description, status });
+      onUpdated?.({ ...pkg, name, description, status });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao atualizar pacote.");
@@ -71,6 +72,18 @@ const EditPackageModal: React.FC<EditPackageModalProps> = ({ pkg, onClose, onUpd
             placeholder="Descreva o objetivo do pacote"
             rows={3}
           />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-slate-200">Status</label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as "open" | "closed")}
+            className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
+          >
+            <option value="open">Aberto</option>
+            <option value="closed">Fechado</option>
+          </select>
         </div>
 
         {error && (
