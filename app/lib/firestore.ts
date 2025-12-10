@@ -17,6 +17,7 @@ export type Package = {
   id?: string;
   name: string;
   description?: string;
+  status?: "open" | "closed";
   createdAt?: any;
   createdBy?: string;
   ownerId?: string;
@@ -101,6 +102,7 @@ export class PackageService {
     const user = getCurrentUser();
     const ref = await addDoc(col("packages"), {
       ...data,
+      status: data.status || "open",
       createdAt: serverTimestamp(),
       createdBy: user?.uid ?? null,
       ownerId: user?.uid ?? null,
@@ -115,6 +117,20 @@ export class PackageService {
 
   static async remove(id: string) {
     await deleteDoc(doc(col("packages"), id));
+  }
+
+  static async removeWithChildren(id: string) {
+    const workOrders = await WorkOrderService.listByPackage(id);
+    await Promise.all(
+      workOrders.map((w) => (w.id ? WorkOrderService.removeWithLogs(w.id) : Promise.resolve()))
+    );
+
+    const subpackages = await SubPackageService.listByPackage(id);
+    await Promise.all(
+      subpackages.map((s) => (s.id ? SubPackageService.removeWithChildren(s.id) : Promise.resolve()))
+    );
+
+    await this.remove(id);
   }
 }
 
@@ -151,6 +167,15 @@ export class SubPackageService {
 
   static async remove(id: string) {
     await deleteDoc(doc(col("subpackages"), id));
+  }
+
+  static async removeWithChildren(id: string) {
+    const workOrders = await WorkOrderService.listBySubPackage(id);
+    await Promise.all(
+      workOrders.map((w) => (w.id ? WorkOrderService.removeWithLogs(w.id) : Promise.resolve()))
+    );
+
+    await this.remove(id);
   }
 }
 
@@ -197,6 +222,12 @@ export class WorkOrderService {
   static async remove(id: string) {
     await deleteDoc(doc(col("workorders"), id));
   }
+
+  static async removeWithLogs(id: string) {
+    const logs = await WorkOrderLogService.listByWorkOrder(id);
+    await Promise.all(logs.map((log) => (log.id ? WorkOrderLogService.remove(log.id) : Promise.resolve())));
+    await this.remove(id);
+  }
 }
 
 export class WorkOrderLogService {
@@ -215,6 +246,10 @@ export class WorkOrderLogService {
       ownerEmail: user?.email ?? null,
     } as DocumentData);
     return ref.id;
+  }
+
+  static async remove(id: string) {
+    await deleteDoc(doc(col("workorderlogs"), id));
   }
 }
 

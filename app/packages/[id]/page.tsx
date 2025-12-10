@@ -24,9 +24,9 @@ export default function PackagePage() {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
   const [pkg, setPkg] = useState<PackageType | null>(null);
-  const [subpackages, setSubpackages] = useState<
-    { subPackage: SubPackage; workOrders: WorkOrder[] }[]
-  >([]);
+  const [subpackages, setSubpackages] = useState<SubPackage[]>([]);
+  const [workOrdersBySub, setWorkOrdersBySub] = useState<Record<string, WorkOrder[]>>({});
+  const [loadingWorkOrders, setLoadingWorkOrders] = useState<Record<string, boolean>>({});
   const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +34,7 @@ export default function PackagePage() {
   const [editingSubPackage, setEditingSubPackage] = useState<SubPackage | null>(null);
   const [editingPackage, setEditingPackage] = useState(false);
   const [deletingPackage, setDeletingPackage] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
@@ -67,16 +68,9 @@ export default function PackagePage() {
       try {
         const p = await PackageService.get(id);
         const subs = await SubPackageService.listByPackage(id);
-        const subsWithOrders = await Promise.all(
-          subs.map(async (s) => {
-            const workOrders = s.id ? await WorkOrderService.listBySubPackage(s.id) : [];
-            return { subPackage: s, workOrders };
-          })
-        );
         if (!mounted) return;
         setPkg(p);
-        setSubpackages(subsWithOrders);
-        setSelectedSubId((prev) => prev || subsWithOrders[0]?.subPackage.id || null);
+        setSubpackages(subs);
         setError(null);
       } catch (err) {
         if (!mounted) return;
@@ -96,28 +90,45 @@ export default function PackagePage() {
   if (!id) return <div>ID de pacote não fornecido</div>;
 
   const selectedSubPackage = useMemo(
-    () => subpackages.find((s) => s.subPackage.id === selectedSubId),
+    () => subpackages.find((s) => s.id === selectedSubId) || null,
     [selectedSubId, subpackages]
   );
+
+  const selectedWorkOrders = selectedSubId ? workOrdersBySub[selectedSubId] : undefined;
+
+  const handleSelectSubPackage = (subPackageId: string | null) => {
+    setSelectedSubId(subPackageId);
+    if (subPackageId && !workOrdersBySub[subPackageId]) {
+      loadWorkOrders(subPackageId);
+    }
+  };
+
+  const loadWorkOrders = async (subPackageId: string) => {
+    setLoadingWorkOrders((prev) => ({ ...prev, [subPackageId]: true }));
+    try {
+      const workOrders = await WorkOrderService.listBySubPackage(subPackageId);
+      setWorkOrdersBySub((prev) => ({ ...prev, [subPackageId]: workOrders }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar serviços do subpacote.");
+    } finally {
+      setLoadingWorkOrders((prev) => ({ ...prev, [subPackageId]: false }));
+    }
+  };
 
   const handleSubPackageCreated = async (newId: string) => {
     if (!newId) return;
     try {
       const newSub = await SubPackageService.get(newId);
       if (!newSub) return;
-      setSubpackages((prev) => [...prev, { subPackage: newSub, workOrders: [] }]);
-      setSelectedSubId(newId);
+      setSubpackages((prev) => [...prev, newSub]);
+      handleSelectSubPackage(newId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar subpacote criado.");
     }
   };
 
   const handleSubPackageUpdated = (updated: SubPackage) => {
-    setSubpackages((prev) =>
-      prev.map((item) =>
-        item.subPackage.id === updated.id ? { ...item, subPackage: { ...item.subPackage, ...updated } } : item
-      )
-    );
+    setSubpackages((prev) => prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
     setEditingSubPackage(null);
   };
 
@@ -129,16 +140,19 @@ export default function PackagePage() {
     const confirmed = window.confirm(
       `Deseja excluir o subpacote "${sub.name}" e remover os serviços associados?`
     );
-    if (!confirmed || !sub.id) return;
-    const current = subpackages.find((s) => s.subPackage.id === sub.id);
-    const workOrdersToDelete = current?.workOrders || [];
+    const subId = sub.id;
+    if (!confirmed || !subId) return;
     try {
-      await Promise.all(workOrdersToDelete.map((w) => (w.id ? WorkOrderService.remove(w.id) : Promise.resolve())));
-      await SubPackageService.remove(sub.id);
+      await SubPackageService.removeWithChildren(subId);
       setSubpackages((prev) => {
-        const nextList = prev.filter((item) => item.subPackage.id !== sub.id);
-        setSelectedSubId((prevSelected) => (prevSelected === sub.id ? nextList[0]?.subPackage.id || null : prevSelected));
-        return nextList;
+        const nextList = prev.filter((item) => item.id !== subId);
+        setSelectedSubId((prevSelected) => (prevSelected === subId ? null : prevSelected));
+        return nextList as SubPackage[];
+      });
+      setWorkOrdersBySub((prev) => {
+        const copy = { ...prev };
+        delete copy[subId];
+        return copy;
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao excluir subpacote.");
@@ -157,11 +171,7 @@ export default function PackagePage() {
     if (!confirmed) return;
     setDeletingPackage(true);
     try {
-      const workOrdersByPackage = await WorkOrderService.listByPackage(pkg.id);
-      await Promise.all(workOrdersByPackage.map((w) => (w.id ? WorkOrderService.remove(w.id) : Promise.resolve())));
-      const subList = await SubPackageService.listByPackage(pkg.id);
-      await Promise.all(subList.map((s) => (s.id ? SubPackageService.remove(s.id) : Promise.resolve())));
-      await PackageService.remove(pkg.id);
+      await PackageService.removeWithChildren(pkg.id);
       router.push("/packages");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao excluir pacote.");
@@ -170,38 +180,50 @@ export default function PackagePage() {
     }
   };
 
-  const handleWorkOrderProgressChange = (workOrderId: string, value: number) => {
-    setSubpackages((prev) =>
-      prev.map((item) => ({
-        ...item,
-        workOrders: item.workOrders.map((w) =>
-          w.id === workOrderId ? { ...w, progress: value, updatedAt: new Date() } : w
-        ),
-      }))
+  const updateWorkOrdersForSub = (
+    subPackageId: string | undefined | null,
+    updater: (current: WorkOrder[]) => WorkOrder[]
+  ) => {
+    if (!subPackageId) return;
+    setWorkOrdersBySub((prev) => ({ ...prev, [subPackageId]: updater(prev[subPackageId] || []) }));
+  };
+
+  const handleWorkOrderProgressChange = (workOrderId: string, value: number, workOrder: WorkOrder) => {
+    updateWorkOrdersForSub(workOrder.subPackageId, (current) =>
+      current.map((w) => (w.id === workOrderId ? { ...w, progress: value, updatedAt: new Date() } : w))
     );
   };
 
   const handleWorkOrderUpdated = (workOrder: WorkOrder) => {
-    setSubpackages((prev) =>
-      prev.map((item) => ({
-        ...item,
-        workOrders: item.workOrders.map((w) => (w.id === workOrder.id ? { ...w, ...workOrder } : w)),
-      }))
+    updateWorkOrdersForSub(workOrder.subPackageId, (current) =>
+      current.map((w) => (w.id === workOrder.id ? { ...w, ...workOrder } : w))
     );
   };
 
-  const handleWorkOrderRemoved = (workOrderId: string) => {
-    setSubpackages((prev) =>
-      prev.map((item) => ({
-        ...item,
-        workOrders: item.workOrders.filter((w) => w.id !== workOrderId),
-      }))
-    );
+  const handleWorkOrderRemoved = (workOrderId: string, subPackageId?: string | null) => {
+    updateWorkOrdersForSub(subPackageId, (current) => current.filter((w) => w.id !== workOrderId));
+  };
+
+  const handleWorkOrderCreated = (workOrder: WorkOrder) => {
+    updateWorkOrdersForSub(workOrder.subPackageId, (current) => [...current, workOrder]);
   };
 
   const handlePackageUpdated = (updated: PackageType) => {
     setPkg((prev) => (prev ? { ...prev, ...updated } : updated));
     setEditingPackage(false);
+  };
+
+  const handlePackageStatusChange = async (nextStatus: "open" | "closed") => {
+    if (!pkg?.id || !canManage) return;
+    setUpdatingStatus(true);
+    try {
+      await PackageService.update(pkg.id, { status: nextStatus });
+      setPkg((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível atualizar o status do pacote.");
+    } finally {
+      setUpdatingStatus(false);
+    }
   };
 
   return (
@@ -224,6 +246,20 @@ export default function PackagePage() {
                 </Link>
                 {canManage ? (
                   <>
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-emerald-200 transition hover:border-emerald-300/60 hover:text-emerald-100 disabled:opacity-60"
+                      onClick={() =>
+                        handlePackageStatusChange((pkg.status || "open") === "open" ? "closed" : "open")
+                      }
+                      disabled={updatingStatus}
+                    >
+                      {updatingStatus
+                        ? "Salvando..."
+                        : (pkg.status || "open") === "open"
+                          ? "Marcar como fechado"
+                          : "Reabrir pacote"}
+                    </button>
                     <button
                       type="button"
                       className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-amber-200 transition hover:border-amber-300/60 hover:text-amber-100"
@@ -252,8 +288,14 @@ export default function PackagePage() {
                     Visualização somente leitura
                   </span>
                 )}
-                <span className="rounded-full bg-emerald-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-200">
-                  Aberto
+                <span
+                  className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide ${
+                    (pkg.status || "open") === "open"
+                      ? "bg-emerald-500/10 text-emerald-200"
+                      : "bg-slate-700 text-slate-200"
+                  }`}
+                >
+                  {(pkg.status || "open") === "open" ? "Aberto" : "Fechado"}
                 </span>
               </div>
             </div>
@@ -298,13 +340,14 @@ export default function PackagePage() {
             </div>
 
             <div className="space-y-3">
-              {subpackages.map(({ subPackage, workOrders }) => {
-                const total = workOrders.length;
-                const done = workOrders.filter((w) => w.status === "done").length;
+              {subpackages.map((subPackage) => {
+                const workOrders = subPackage.id ? workOrdersBySub[subPackage.id] : undefined;
+                const total = workOrders?.length ?? 0;
+                const done = workOrders?.filter((w) => w.status === "done").length ?? 0;
                 const selected = selectedSubId === subPackage.id;
-                const average = total
+                const average = workOrders?.length
                   ? Math.round(
-                      workOrders.reduce((sum, w) => sum + (Number(w.progress) || 0), 0) / total
+                      workOrders.reduce((sum, w) => sum + (Number(w.progress) || 0), 0) / workOrders.length
                     )
                   : 0;
 
@@ -312,7 +355,7 @@ export default function PackagePage() {
                   <button
                     key={subPackage.id}
                     type="button"
-                    onClick={() => setSelectedSubId(subPackage.id || null)}
+                    onClick={() => handleSelectSubPackage(subPackage.id || null)}
                     className={`w-full text-left transition ${
                       selected
                         ? "border-emerald-400/60 bg-emerald-400/10 shadow-lg shadow-emerald-500/15"
@@ -321,10 +364,14 @@ export default function PackagePage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Processos: {total}</p>
+                        <p className="text-xs uppercase tracking-wide text-slate-400">
+                          Processos: {workOrders ? total : "-"}
+                        </p>
                         <p className="text-base font-semibold text-white">{subPackage.name}</p>
-                        <p className="text-xs text-slate-400">Realizados: {done}</p>
-                        <p className="text-xs text-emerald-200">Progresso médio: {average}%</p>
+                        <p className="text-xs text-slate-400">Realizados: {workOrders ? done : "-"}</p>
+                        <p className="text-xs text-emerald-200">
+                          Progresso médio: {workOrders ? `${average}%` : "Selecione para carregar"}
+                        </p>
                       </div>
                     </div>
                     {canManage && (
@@ -365,15 +412,28 @@ export default function PackagePage() {
 
           <section>
             {selectedSubPackage ? (
+              (() => {
+                const subId = selectedSubPackage.id;
+                return (
               <SubPackageView
-                subPackage={selectedSubPackage.subPackage}
-                workOrders={selectedSubPackage.workOrders}
+                subPackage={selectedSubPackage}
+                workOrders={selectedWorkOrders}
+                loading={subId ? loadingWorkOrders[subId] : false}
+                onLoadRequest={
+                  subId
+                    ? () =>
+                        !loadingWorkOrders[subId] && !workOrdersBySub[subId] && loadWorkOrders(subId)
+                    : undefined
+                }
                 onWorkOrderProgressChange={handleWorkOrderProgressChange}
                 onWorkOrderRemoved={handleWorkOrderRemoved}
                 onWorkOrderUpdated={handleWorkOrderUpdated}
+                onWorkOrderCreated={handleWorkOrderCreated}
                 allowManage={canManage}
                 allowProgressUpdate
               />
+                );
+              })()
             ) : (
               <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-center text-slate-400">
                 Selecione um subpacote para visualizar os serviços disponíveis.
