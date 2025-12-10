@@ -2,7 +2,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
 import {
   PackageService,
   SubPackageService,
@@ -14,7 +13,6 @@ import {
 import SubPackageView from "@/app/components/SubPackageView";
 import AddSubPackageModal from "@/app/components/AddSubPackageModal";
 import ImportExcelModal from "@/app/components/ImportExcelModal";
-import { ensureAuth } from "@/app/lib/firebase";
 import EditSubPackageModal from "@/app/components/EditSubPackageModal";
 import EditPackageModal from "@/app/components/EditPackageModal";
 
@@ -22,7 +20,6 @@ export default function PackagePage() {
   const params = useParams();
   const id = params?.id as string | undefined;
   const router = useRouter();
-  const [authorized, setAuthorized] = useState(false);
   const [pkg, setPkg] = useState<PackageType | null>(null);
   const [subpackages, setSubpackages] = useState<SubPackage[]>([]);
   const [workOrdersBySub, setWorkOrdersBySub] = useState<Record<string, WorkOrder[]>>({});
@@ -36,29 +33,6 @@ export default function PackagePage() {
   const [deletingPackage, setDeletingPackage] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showImport, setShowImport] = useState(false);
-
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-
-    try {
-      const auth = ensureAuth();
-      setAuthorized(!!auth.currentUser);
-
-      unsubscribe = onAuthStateChanged(auth, (user) => {
-        setAuthorized(!!user);
-      });
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Não foi possível verificar a autenticação."
-      );
-    }
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -85,9 +59,7 @@ export default function PackagePage() {
     };
   }, [id]);
 
-  const canManage = authorized;
-
-  if (!id) return <div>ID de pacote não fornecido</div>;
+  const canManage = true;
 
   const selectedSubPackage = useMemo(
     () => subpackages.find((s) => s.id === selectedSubId) || null,
@@ -95,6 +67,8 @@ export default function PackagePage() {
   );
 
   const selectedWorkOrders = selectedSubId ? workOrdersBySub[selectedSubId] : undefined;
+
+  if (!id) return <div>ID de pacote não fornecido</div>;
 
   const handleSelectSubPackage = (subPackageId: string | null) => {
     setSelectedSubId(subPackageId);
@@ -133,10 +107,6 @@ export default function PackagePage() {
   };
 
   const handleSubPackageRemoved = async (sub: SubPackage) => {
-    if (!canManage) {
-      setError("É necessário estar autenticado para excluir subpacotes.");
-      return;
-    }
     const confirmed = window.confirm(
       `Deseja excluir o subpacote "${sub.name}" e remover os serviços associados?`
     );
@@ -160,10 +130,6 @@ export default function PackagePage() {
   };
 
   const handlePackageRemoved = async () => {
-    if (!canManage) {
-      setError("É necessário estar autenticado para excluir pacotes.");
-      return;
-    }
     if (!pkg?.id) return;
     const confirmed = window.confirm(
       "Deseja excluir este pacote? Os subpacotes e serviços associados também serão removidos."
@@ -317,7 +283,7 @@ export default function PackagePage() {
                 <h3 className="text-lg font-semibold text-white">Organize por empresa/etapa</h3>
               </div>
               <div className="flex items-center gap-2">
-                {canManage ? (
+                {canManage && (
                   <button
                     type="button"
                     className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
@@ -325,13 +291,6 @@ export default function PackagePage() {
                   >
                     Adicionar subpacote
                   </button>
-                ) : (
-                  <Link
-                    href="/login"
-                    className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:border-emerald-300/60 hover:text-emerald-100"
-                  >
-                    Faça login para gerenciar
-                  </Link>
                 )}
                 <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-200">
                   {subpackages.length} itens

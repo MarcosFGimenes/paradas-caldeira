@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SubPackage, WorkOrder, WorkOrderService } from "@/app/lib/firestore";
 import AddWorkOrderForm from "@/app/components/AddWorkOrderForm";
 import { useWorkOrderUpdate } from "@/app/hooks/useWorkOrder";
@@ -56,6 +56,7 @@ export const SubPackageView: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null);
   const [requestedLoad, setRequestedLoad] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [machineFilter, setMachineFilter] = useState("");
 
   useEffect(() => {
     setRequestedLoad(false);
@@ -121,6 +122,14 @@ export const SubPackageView: React.FC<Props> = ({
     onWorkOrderCreated?.(created);
   };
 
+  const filteredWorkOrders = useMemo(() => {
+    const term = machineFilter.trim().toLowerCase();
+    if (!term) return workOrdersState;
+    return workOrdersState.filter((item) =>
+      (item.machineName || "").toLowerCase().includes(term)
+    );
+  }, [machineFilter, workOrdersState]);
+
   return (
     <div className="space-y-4 rounded-2xl border border-white/5 bg-slate-900/60 p-5 shadow-xl shadow-emerald-500/5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -165,28 +174,39 @@ export const SubPackageView: React.FC<Props> = ({
         Atualize o progresso digitando a porcentagem de cada serviço. Os valores são salvos automaticamente.
       </div>
 
-      {allowManage ? (
-        <div className="space-y-3">
-          <button
-            type="button"
-            className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
-            onClick={() => setShowAddForm((prev) => !prev)}
-          >
-            {showAddForm ? "Fechar formulário" : "Adicionar novo serviço"}
-          </button>
-          {showAddForm && (
-            <AddWorkOrderForm
-              packageId={subPackage.packageId}
-              subPackageId={subPackage.id || ""}
-              onCreated={handleServiceCreated}
-            />
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {allowManage && (
+            <button
+              type="button"
+              className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
+              onClick={() => setShowAddForm((prev) => !prev)}
+            >
+              {showAddForm ? "Fechar formulário" : "Adicionar novo serviço"}
+            </button>
           )}
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="machine-filter" className="text-sm font-semibold text-slate-200">
+              Nome da máquina
+            </label>
+            <input
+              id="machine-filter"
+              type="text"
+              value={machineFilter}
+              onChange={(e) => setMachineFilter(e.target.value)}
+              className="min-w-[220px] rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
+              placeholder="Filtrar serviços"
+            />
+          </div>
         </div>
-      ) : (
-        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-          Faça login para adicionar novos serviços a este subpacote.
-        </div>
-      )}
+        {allowManage && showAddForm && (
+          <AddWorkOrderForm
+            packageId={subPackage.packageId}
+            subPackageId={subPackage.id || ""}
+            onCreated={handleServiceCreated}
+          />
+        )}
+      </div>
 
       {error && (
         <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{error}</div>
@@ -196,13 +216,13 @@ export const SubPackageView: React.FC<Props> = ({
           Carregando ordens...
         </div>
       )}
-      {!loading && workOrdersState.length === 0 && (
+      {!loading && filteredWorkOrders.length === 0 && (
         <div className="rounded-lg border border-dashed border-white/10 bg-white/5 px-4 py-6 text-center text-slate-400">
           Nenhuma ordem neste subpacote.
         </div>
       )}
       <div className="space-y-3">
-        {workOrdersState.map((w) => (
+        {filteredWorkOrders.map((w) => (
           <WorkOrderProgressRow
             key={w.id}
             workOrder={w}
@@ -277,7 +297,9 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
     return `${day}/${month} ${hours}:${minutes}`;
   };
 
-  const [lastSavedProgress, setLastSavedProgress] = useState<number>(Number(workOrder.progress) || 0);
+  const initialProgress = Number(workOrder.progress) || 0;
+  const [previousProgress, setPreviousProgress] = useState<number>(initialProgress);
+  const [lastSavedProgress, setLastSavedProgress] = useState<number>(initialProgress);
   const [inputValue, setInputValue] = useState<string>(
     workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : ""
   );
@@ -286,12 +308,33 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
   const [showEdit, setShowEdit] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(parseDate(workOrder.updatedAt));
+  const previousProgressRef = useRef<number>(initialProgress);
+  const previousIdRef = useRef<string | undefined>(workOrder.id);
 
   useEffect(() => {
+    const incomingProgress = Number(workOrder.progress) || 0;
+    const incomingUpdatedAt = parseDate(workOrder.updatedAt);
+
     setInputValue(workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : "");
-    setLastSavedProgress(Number(workOrder.progress) || 0);
-    setLastUpdatedAt(parseDate(workOrder.updatedAt));
-  }, [workOrder.progress, workOrder.updatedAt]);
+    setLastUpdatedAt(incomingUpdatedAt);
+
+    const isNewWorkOrder = workOrder.id !== previousIdRef.current;
+    const progressChanged = incomingProgress !== previousProgressRef.current;
+
+    if (isNewWorkOrder) {
+      previousIdRef.current = workOrder.id;
+      previousProgressRef.current = incomingProgress;
+      setPreviousProgress(incomingProgress);
+      setLastSavedProgress(incomingProgress);
+      return;
+    }
+
+    if (progressChanged) {
+      setPreviousProgress(previousProgressRef.current);
+      setLastSavedProgress(incomingProgress);
+      previousProgressRef.current = incomingProgress;
+    }
+  }, [workOrder.id, workOrder.progress, workOrder.updatedAt]);
 
   useEffect(() => {
     if (!allowProgressUpdate) return;
@@ -310,7 +353,9 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
       setSaveError(null);
       try {
         await update(workOrder.id!, { progress: normalized });
+        setPreviousProgress(lastSavedProgress);
         setLastSavedProgress(normalized);
+        previousProgressRef.current = normalized;
         setLastUpdatedAt(new Date());
         onProgressUpdated?.(normalized);
       } catch (err) {
@@ -334,7 +379,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
-          Anterior: {lastSavedProgress}%
+          Anterior: {previousProgress}%
         </span>
         <label className="text-sm font-semibold text-slate-200" htmlFor={`progress-${workOrder.id}`}>
           Progresso (%)
