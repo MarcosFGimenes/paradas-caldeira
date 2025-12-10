@@ -42,12 +42,14 @@ export type WorkOrder = {
   status?: string;
   progress?: number;
   createdAt?: any;
+  updatedAt?: any;
   office?: string | number | null;
   osNumber?: string | number | null;
   tag?: string | number | null;
   machineName?: string | null;
   task?: string | null;
   responsible?: string | null;
+  importOrder?: number | null;
   [key: string]: any;
   createdBy?: string;
   ownerId?: string;
@@ -176,6 +178,7 @@ export class WorkOrderService {
       removeUndefined({
         ...data,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         createdBy: user?.uid ?? null,
         ownerId: user?.uid ?? null,
         ownerEmail: user?.email ?? null,
@@ -185,7 +188,10 @@ export class WorkOrderService {
   }
 
   static async update(id: string, data: Partial<WorkOrder>) {
-    await updateDoc(doc(col("workorders"), id), data as DocumentData);
+    await updateDoc(
+      doc(col("workorders"), id),
+      removeUndefined({ ...data, updatedAt: serverTimestamp() }) as DocumentData
+    );
   }
 
   static async remove(id: string) {
