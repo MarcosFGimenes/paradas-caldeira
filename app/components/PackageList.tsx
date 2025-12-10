@@ -91,8 +91,14 @@ export const PackageList: React.FC<PackageListProps> = ({
                     {p.description || "Pacote sem descrição disponível."}
                   </p>
                 </div>
-                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-200">
-                  Aberto
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                    (p.status || "open") === "open"
+                      ? "bg-emerald-500/10 text-emerald-200"
+                      : "bg-slate-700 text-slate-200"
+                  }`}
+                >
+                  {(p.status || "open") === "open" ? "Aberto" : "Fechado"}
                 </span>
               </div>
             </Link>
@@ -132,12 +138,12 @@ export const PackageList: React.FC<PackageListProps> = ({
                     onClick={async () => {
                       if (!p.id) return;
                       const confirmed = window.confirm(
-                        `Deseja excluir o pacote "${p.name}"? Essa ação remove apenas o pacote, mantendo os subpacotes e serviços associados para revisão manual.`
+                        `Deseja excluir o pacote "${p.name}"? Os subpacotes e serviços associados também serão removidos.`
                       );
                       if (!confirmed) return;
                       setRemovingId(p.id);
                       try {
-                        await PackageService.remove(p.id);
+                        await PackageService.removeWithChildren(p.id);
                         setPackages((prev) => prev.filter((pkg) => pkg.id !== p.id));
                         onDeleted?.();
                       } catch (err) {

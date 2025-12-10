@@ -9,9 +9,12 @@ import EditWorkOrderModal from "@/app/components/EditWorkOrderModal";
 type Props = {
   subPackage: SubPackage;
   workOrders?: WorkOrder[];
-  onWorkOrderProgressChange?: (id: string, value: number) => void;
-  onWorkOrderRemoved?: (id: string) => void;
+  loading?: boolean;
+  onLoadRequest?: () => void;
+  onWorkOrderProgressChange?: (id: string, value: number, workOrder: WorkOrder) => void;
+  onWorkOrderRemoved?: (id: string, subPackageId?: string | null) => void;
   onWorkOrderUpdated?: (workOrder: WorkOrder) => void;
+  onWorkOrderCreated?: (workOrder: WorkOrder) => void;
   allowManage?: boolean;
   allowProgressUpdate?: boolean;
 };
@@ -19,9 +22,12 @@ type Props = {
 export const SubPackageView: React.FC<Props> = ({
   subPackage,
   workOrders,
+  loading: loadingProp = false,
+  onLoadRequest,
   onWorkOrderProgressChange,
   onWorkOrderRemoved,
   onWorkOrderUpdated,
+  onWorkOrderCreated,
   allowManage = true,
   allowProgressUpdate = true,
 }) => {
@@ -48,12 +54,29 @@ export const SubPackageView: React.FC<Props> = ({
   const [workOrdersState, setWorkOrdersState] = useState<WorkOrder[]>(workOrders ? sortWorkOrders(workOrders) : []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requestedLoad, setRequestedLoad] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  useEffect(() => {
+    setRequestedLoad(false);
+    setShowAddForm(false);
+    setError(null);
+  }, [subPackage.id]);
 
   useEffect(() => {
     if (workOrders) {
       setWorkOrdersState(sortWorkOrders(workOrders));
       setError(null);
       setLoading(false);
+      return;
+    }
+
+    if (onLoadRequest) {
+      if (!requestedLoad) {
+        setRequestedLoad(true);
+        setLoading(true);
+        onLoadRequest();
+      }
       return;
     }
 
@@ -76,7 +99,11 @@ export const SubPackageView: React.FC<Props> = ({
     return () => {
       mounted = false;
     };
-  }, [subPackage.id, workOrders]);
+  }, [subPackage.id, workOrders, onLoadRequest, requestedLoad]);
+
+  useEffect(() => {
+    setLoading(loadingProp);
+  }, [loadingProp]);
 
   const completed = useMemo(
     () => workOrdersState.filter((w) => w.status === "done").length,
@@ -91,6 +118,7 @@ export const SubPackageView: React.FC<Props> = ({
 
   const handleServiceCreated = (created: WorkOrder) => {
     setWorkOrdersState((prev) => sortWorkOrders([...prev, created]));
+    onWorkOrderCreated?.(created);
   };
 
   return (
@@ -138,11 +166,22 @@ export const SubPackageView: React.FC<Props> = ({
       </div>
 
       {allowManage ? (
-        <AddWorkOrderForm
-          packageId={subPackage.packageId}
-          subPackageId={subPackage.id || ""}
-          onCreated={handleServiceCreated}
-        />
+        <div className="space-y-3">
+          <button
+            type="button"
+            className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-200 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-emerald-100"
+            onClick={() => setShowAddForm((prev) => !prev)}
+          >
+            {showAddForm ? "Fechar formulário" : "Adicionar novo serviço"}
+          </button>
+          {showAddForm && (
+            <AddWorkOrderForm
+              packageId={subPackage.packageId}
+              subPackageId={subPackage.id || ""}
+              onCreated={handleServiceCreated}
+            />
+          )}
+        </div>
       ) : (
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
           Faça login para adicionar novos serviços a este subpacote.
@@ -174,12 +213,16 @@ export const SubPackageView: React.FC<Props> = ({
                 )
               );
               if (w.id) {
-                onWorkOrderProgressChange?.(w.id, value);
+                onWorkOrderProgressChange?.(w.id, value, {
+                  ...w,
+                  progress: value,
+                  updatedAt: new Date(),
+                });
               }
             }}
             onDeleted={(id) => {
               setWorkOrdersState((prev) => prev.filter((item) => item.id !== id));
-              onWorkOrderRemoved?.(id);
+              onWorkOrderRemoved?.(id, w.subPackageId ?? subPackage.id);
             }}
             onUpdated={(updated) => {
               setWorkOrdersState((prev) =>
@@ -345,7 +388,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
               if (!confirmed) return;
               setDeleting(true);
               try {
-                await WorkOrderService.remove(workOrder.id);
+                await WorkOrderService.removeWithLogs(workOrder.id);
                 onDeleted?.(workOrder.id);
               } catch (err) {
                 console.error(err);
