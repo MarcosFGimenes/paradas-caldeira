@@ -13,20 +13,20 @@ export default function HomePage() {
               <p className="text-sm uppercase tracking-wide text-emerald-200">Visão geral</p>
               <h1 className="text-3xl font-semibold text-white">Pacotes disponíveis</h1>
               <p className="text-sm text-slate-300">
-                Visualize rapidamente os pacotes cadastrados sem precisar de login. Entre no painel apenas se precisar criar ou editar.
+                Visualize e gerencie pacotes sem precisar de login. Todos os recursos estão liberados para uso imediato.
               </p>
             </div>
             <Link
-              href="/login"
+              href="/packages"
               className="inline-flex items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-400/10 px-5 py-2 text-sm font-semibold text-emerald-100 shadow-lg shadow-emerald-500/10 transition hover:border-emerald-300 hover:text-white"
             >
-              Entrar para gerenciar
+              Ir para gerenciamento
             </Link>
           </div>
         </header>
 
         <main className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 shadow-2xl shadow-emerald-500/10 sm:p-6">
-          <PackageList allowManage={false} />
+          <PackageList allowManage />
         </main>
       </div>
     </div>

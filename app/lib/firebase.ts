@@ -1,7 +1,6 @@
 "use client";
 
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { getAuth, Auth } from "firebase/auth";
 import {
   Firestore,
   initializeFirestore,
@@ -10,7 +9,6 @@ import {
 } from "firebase/firestore";
 
 let firebaseApp: FirebaseApp | null = null;
-let auth: Auth | null = null;
 let db: Firestore | null = null;
 let initError: Error | null = null;
 
@@ -40,7 +38,7 @@ const loadConfig = () => {
 
 const initFirebase = () => {
   if (firebaseApp || typeof window === "undefined") {
-    return { firebaseApp, auth, db };
+    return { firebaseApp, db };
   }
 
   try {
@@ -48,7 +46,6 @@ const initFirebase = () => {
 
     if (!getApps().length) {
       firebaseApp = initializeApp(config);
-      auth = getAuth(firebaseApp);
       db = initializeFirestore(firebaseApp, {
         experimentalAutoDetectLongPolling: true,
         localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
@@ -58,7 +55,7 @@ const initFirebase = () => {
     initError = error as Error;
   }
 
-  return { firebaseApp, auth, db };
+  return { firebaseApp, db };
 };
 
 const ensureDb = () => {
@@ -72,27 +69,13 @@ const ensureDb = () => {
   return currentDb;
 };
 
-const ensureAuth = () => {
-  const { auth: currentAuth } = initFirebase();
-  if (initError) throw initError;
-  if (!currentAuth) {
-    throw new Error(
-      "Firebase Auth não foi inicializado. Confirme se as variáveis de ambiente estão definidas e se o código executa no cliente."
-    );
-  }
-  return currentAuth;
-};
-
 initFirebase();
 
-export { initFirebase, ensureAuth, ensureDb };
-export type { FirebaseApp, Auth, Firestore };
+export { initFirebase, ensureDb };
+export type { FirebaseApp, Firestore };
 export default {
   get app() {
     return firebaseApp;
-  },
-  get auth() {
-    return auth;
   },
   get db() {
     return db;
