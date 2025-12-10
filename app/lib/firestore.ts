@@ -1,4 +1,4 @@
-import { ensureAuth, ensureDb } from "@/app/lib/firebase";
+import { ensureDb } from "@/app/lib/firebase";
 import {
   collection,
   doc,
@@ -67,14 +67,12 @@ export type WorkOrderLog = {
   ownerEmail?: string | null;
 };
 
-function getCurrentUser() {
-  try {
-    return ensureAuth().currentUser;
-  } catch (error) {
-    console.warn("Não foi possível obter o usuário atual:", error);
-    return null;
-  }
-}
+type MinimalUser = {
+  uid?: string | null;
+  email?: string | null;
+};
+
+const getCurrentUser = (): MinimalUser | null => null;
 
 function col(path: string) {
   return collection(ensureDb(), path);
