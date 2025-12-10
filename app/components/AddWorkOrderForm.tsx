@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { WorkOrder, WorkOrderService } from "@/app/lib/firestore";
 
 interface AddWorkOrderFormProps {
@@ -10,7 +10,6 @@ interface AddWorkOrderFormProps {
 }
 
 const AddWorkOrderForm: React.FC<AddWorkOrderFormProps> = ({ packageId, subPackageId, onCreated }) => {
-  const [title, setTitle] = useState("");
   const [office, setOffice] = useState("");
   const [osNumber, setOsNumber] = useState("");
   const [tag, setTag] = useState("");
@@ -20,12 +19,10 @@ const AddWorkOrderForm: React.FC<AddWorkOrderFormProps> = ({ packageId, subPacka
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const normalizedTitle = useMemo(() => title || task, [task, title]);
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!normalizedTitle.trim()) {
-      setError("Informe um título ou tarefa para o serviço.");
+    if (!task.trim()) {
+      setError("Informe uma tarefa para o serviço.");
       return;
     }
 
@@ -33,7 +30,7 @@ const AddWorkOrderForm: React.FC<AddWorkOrderFormProps> = ({ packageId, subPacka
     try {
       const createdAt = Date.now();
       const baseData: WorkOrder = {
-        title: normalizedTitle.trim(),
+        title: task.trim(),
         packageId,
         subPackageId,
         status: "todo",
@@ -42,7 +39,7 @@ const AddWorkOrderForm: React.FC<AddWorkOrderFormProps> = ({ packageId, subPacka
         osNumber: osNumber || null,
         tag: tag || null,
         machineName: machineName || null,
-        task: task || normalizedTitle,
+        task: task.trim(),
         responsible: responsible || null,
         createdAt: new Date(createdAt),
         updatedAt: new Date(createdAt),
@@ -51,7 +48,6 @@ const AddWorkOrderForm: React.FC<AddWorkOrderFormProps> = ({ packageId, subPacka
 
       const id = await WorkOrderService.create(baseData);
       onCreated?.({ ...baseData, id });
-      setTitle("");
       setOffice("");
       setOsNumber("");
       setTag("");
@@ -68,27 +64,15 @@ const AddWorkOrderForm: React.FC<AddWorkOrderFormProps> = ({ packageId, subPacka
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-white/5 bg-slate-900/70 p-4 shadow-inner shadow-emerald-500/5">
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Novo serviço</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Título do serviço"
-            className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Tarefa</label>
-          <input
-            type="text"
-            value={task}
-            onChange={(e) => setTask(e.target.value)}
-            placeholder="Descrição / Tarefa"
-            className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
-          />
-        </div>
+      <div className="space-y-1">
+        <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Tarefa</label>
+        <input
+          type="text"
+          value={task}
+          onChange={(e) => setTask(e.target.value)}
+          placeholder="Título ou descrição do serviço"
+          className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
+        />
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
