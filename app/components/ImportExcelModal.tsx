@@ -98,8 +98,6 @@ export const ImportExcelModal: React.FC<Props> = ({
         return;
       }
 
-      const existingOrders = await WorkOrderService.listByPackage(selectedPackage);
-      let currentSubPackages = [...subPackages];
       const normalizeOsNumber = (value: string | number | null | undefined) =>
         value?.toString().trim().toLowerCase();
       const normalizeText = (value: string | number | null | undefined) =>
@@ -109,6 +107,13 @@ export const ImportExcelModal: React.FC<Props> = ({
           .toLowerCase()
           .normalize("NFD")
           .replace(/\p{Diacritic}+/gu, "");
+      const existingOrders = await WorkOrderService.listByPackage(selectedPackage);
+      const existingOsNumbers = new Set(
+        existingOrders
+          .map((order) => normalizeOsNumber(order.osNumber ?? null))
+          .filter((value): value is string => !!value)
+      );
+      let currentSubPackages = [...subPackages];
       const rowSignature = (data: {
         office?: string | number | null;
         osNumber?: string | number | null;
@@ -173,6 +178,12 @@ export const ImportExcelModal: React.FC<Props> = ({
 
       for (const p of parsed) {
         const signature = rowSignature(p);
+        const normalizedOs = normalizeOsNumber(p.osNumber ?? null);
+        if (normalizedOs && existingOsNumbers.has(normalizedOs)) {
+          skippedCount += 1;
+          continue;
+        }
+
         if (signature && knownRows.has(signature)) {
           skippedCount += 1;
           continue;
@@ -180,6 +191,8 @@ export const ImportExcelModal: React.FC<Props> = ({
 
         const officeKey = deriveOfficeKey(p.office ?? null);
         const matchedSubPackageId = await ensureSubPackageForOffice(officeKey);
+
+        const importOrder = typeof p.rowIndex === "number" ? p.rowIndex : Date.now();
 
         await WorkOrderService.create({
           title: p.title || p.task || "Importado",
@@ -192,11 +205,15 @@ export const ImportExcelModal: React.FC<Props> = ({
           machineName: p.machineName ?? null,
           task: p.task ?? p.title ?? null,
           responsible: p.responsible ?? null,
+          importOrder,
           sourceRow: p.rowIndex,
         });
 
         if (signature) {
           knownRows.add(signature);
+        }
+        if (normalizedOs) {
+          existingOsNumbers.add(normalizedOs);
         }
         createdCount += 1;
       }
