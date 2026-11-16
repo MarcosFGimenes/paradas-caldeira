@@ -198,10 +198,11 @@ export const SubPackageView: React.FC<Props> = ({
         </div>
       )}
       <div className="space-y-3">
-        {workOrdersState.map((w) => (
+        {workOrdersState.map((w, index) => (
           <WorkOrderProgressRow
             key={w.id}
             workOrder={w}
+            accent={index % 2 === 0 ? "emerald" : "blue"}
             onProgressUpdated={(value, previousValue, updatedAt) => {
               setWorkOrdersState((prev) =>
                 prev.map((item) =>
@@ -240,6 +241,7 @@ export const SubPackageView: React.FC<Props> = ({
 
 type WorkOrderProgressRowProps = {
   workOrder: WorkOrder;
+  accent: "emerald" | "blue";
   onProgressUpdated?: (value: number, previousValue: number, updatedAt: Date) => void;
   onDeleted?: (id: string) => void;
   onUpdated?: (workOrder: WorkOrder) => void;
@@ -249,6 +251,7 @@ type WorkOrderProgressRowProps = {
 
 const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
   workOrder,
+  accent,
   onProgressUpdated,
   onDeleted,
   onUpdated,
@@ -364,9 +367,17 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
     lastUpdatedAt !== null && currentTime - lastUpdatedAt.getTime() < 30 * 60 * 1000;
 
   return (
-    <div className="space-y-3 rounded-xl border border-white/5 bg-white/5 px-4 py-3 shadow-sm shadow-emerald-500/5">
+    <div
+      className={`space-y-3 rounded-xl border px-4 py-3 shadow-md ${
+        accent === "emerald"
+          ? "border-emerald-400/50 bg-emerald-500/10 shadow-emerald-500/15"
+          : "border-blue-400/50 bg-blue-500/10 shadow-blue-500/15"
+      }`}
+    >
       <div className="space-y-1">
-        <p className="text-sm font-semibold text-emerald-200">O.S: {workOrder.osNumber ?? "-"}</p>
+        <p className={`text-sm font-semibold ${accent === "emerald" ? "text-emerald-200" : "text-blue-200"}`}>
+          O.S: {workOrder.osNumber ?? "-"}
+        </p>
         <p className="text-base font-semibold text-white">{workOrder.machineName || "Sem máquina"}</p>
         <p className="text-sm text-slate-300">Responsável: {workOrder.responsible || "Não informado"}</p>
         <p className="text-sm text-slate-300">Data: {workOrder.date || "-"}</p>
