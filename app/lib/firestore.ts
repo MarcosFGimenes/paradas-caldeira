@@ -42,6 +42,7 @@ export type WorkOrder = {
   title: string;
   status?: string;
   progress?: number;
+  previousProgress?: number;
   createdAt?: any;
   updatedAt?: any;
   office?: string | number | null;

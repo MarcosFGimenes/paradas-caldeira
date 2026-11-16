@@ -156,7 +156,7 @@ export default function PackagePage() {
 
   const handleWorkOrderProgressChange = (workOrderId: string, value: number, workOrder: WorkOrder) => {
     updateWorkOrdersForSub(workOrder.subPackageId, (current) =>
-      current.map((w) => (w.id === workOrderId ? { ...w, progress: value, updatedAt: new Date() } : w))
+      current.map((w) => (w.id === workOrderId ? { ...w, ...workOrder, progress: value } : w))
     );
   };
 

@@ -202,17 +202,20 @@ export const SubPackageView: React.FC<Props> = ({
           <WorkOrderProgressRow
             key={w.id}
             workOrder={w}
-            onProgressUpdated={(value) => {
+            onProgressUpdated={(value, previousValue, updatedAt) => {
               setWorkOrdersState((prev) =>
                 prev.map((item) =>
-                  item.id === w.id ? { ...item, progress: value, updatedAt: new Date() } : item
+                  item.id === w.id
+                    ? { ...item, progress: value, previousProgress: previousValue, updatedAt }
+                    : item
                 )
               );
               if (w.id) {
                 onWorkOrderProgressChange?.(w.id, value, {
                   ...w,
                   progress: value,
-                  updatedAt: new Date(),
+                  previousProgress: previousValue,
+                  updatedAt,
                 });
               }
             }}
@@ -237,7 +240,7 @@ export const SubPackageView: React.FC<Props> = ({
 
 type WorkOrderProgressRowProps = {
   workOrder: WorkOrder;
-  onProgressUpdated?: (value: number) => void;
+  onProgressUpdated?: (value: number, previousValue: number, updatedAt: Date) => void;
   onDeleted?: (id: string) => void;
   onUpdated?: (workOrder: WorkOrder) => void;
   allowManage?: boolean;
@@ -274,8 +277,12 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
   };
 
   const initialProgress = Number(workOrder.progress) || 0;
-  const [previousProgress, setPreviousProgress] = useState<number>(initialProgress);
-  const [lastSavedProgress, setLastSavedProgress] = useState<number>(initialProgress);
+  const [previousProgress, setPreviousProgress] = useState<number>(() => {
+    const storedPreviousProgress = Number(workOrder.previousProgress);
+    return Number.isFinite(storedPreviousProgress) && workOrder.previousProgress != null
+      ? storedPreviousProgress
+      : initialProgress;
+  });
   const [inputValue, setInputValue] = useState<string>(
     workOrder.progress !== undefined && workOrder.progress !== null ? String(workOrder.progress) : ""
   );
@@ -284,8 +291,15 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
   const [showEdit, setShowEdit] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(parseDate(workOrder.updatedAt));
-  const previousProgressRef = useRef<number>(initialProgress);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const previousIdRef = useRef<string | undefined>(workOrder.id);
+
+  useEffect(() => {
+    if (!lastUpdatedAt) return;
+    const timeUntilStale = lastUpdatedAt.getTime() + 30 * 60 * 1000 - Date.now();
+    const timer = setTimeout(() => setCurrentTime(Date.now()), Math.max(0, timeUntilStale));
+    return () => clearTimeout(timer);
+  }, [lastUpdatedAt]);
 
   useEffect(() => {
     const incomingProgress = Number(workOrder.progress) || 0;
@@ -295,22 +309,24 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
     setLastUpdatedAt(incomingUpdatedAt);
 
     const isNewWorkOrder = workOrder.id !== previousIdRef.current;
-    const progressChanged = incomingProgress !== previousProgressRef.current;
-
     if (isNewWorkOrder) {
       previousIdRef.current = workOrder.id;
-      previousProgressRef.current = incomingProgress;
-      setPreviousProgress(incomingProgress);
-      setLastSavedProgress(incomingProgress);
+      const storedPreviousProgress = Number(workOrder.previousProgress);
+      setPreviousProgress(
+        Number.isFinite(storedPreviousProgress) && workOrder.previousProgress != null
+          ? storedPreviousProgress
+          : incomingProgress
+      );
       return;
     }
 
-    if (progressChanged) {
-      setPreviousProgress(previousProgressRef.current);
-      setLastSavedProgress(incomingProgress);
-      previousProgressRef.current = incomingProgress;
+    if (workOrder.previousProgress != null) {
+      const storedPreviousProgress = Number(workOrder.previousProgress);
+      if (Number.isFinite(storedPreviousProgress)) {
+        setPreviousProgress(storedPreviousProgress);
+      }
     }
-  }, [workOrder.id, workOrder.progress, workOrder.updatedAt]);
+  }, [workOrder.id, workOrder.progress, workOrder.previousProgress, workOrder.updatedAt]);
 
   useEffect(() => {
     if (!allowProgressUpdate) return;
@@ -328,12 +344,11 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
       setSaving(true);
       setSaveError(null);
       try {
-        await update(workOrder.id!, { progress: normalized });
-        setPreviousProgress(lastSavedProgress);
-        setLastSavedProgress(normalized);
-        previousProgressRef.current = normalized;
-        setLastUpdatedAt(new Date());
-        onProgressUpdated?.(normalized);
+        await update(workOrder.id!, { progress: normalized, previousProgress: current });
+        const updatedAt = new Date();
+        setPreviousProgress(current);
+        setLastUpdatedAt(updatedAt);
+        onProgressUpdated?.(normalized, current, updatedAt);
       } catch (err) {
         console.error(err);
         setSaveError("Erro ao salvar. Tente novamente.");
@@ -344,6 +359,9 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
 
     return () => clearTimeout(handler);
   }, [allowProgressUpdate, inputValue, update, workOrder.id, workOrder.progress, onProgressUpdated]);
+
+  const isRecentlyUpdated =
+    lastUpdatedAt !== null && currentTime - lastUpdatedAt.getTime() < 30 * 60 * 1000;
 
   return (
     <div className="space-y-3 rounded-xl border border-white/5 bg-white/5 px-4 py-3 shadow-sm shadow-emerald-500/5">
@@ -390,6 +408,24 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
           <span className="text-xs text-emerald-300">Salvo automaticamente</span>
         )}
       </div>
+      <p>
+        <span
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+            isRecentlyUpdated
+              ? "border-emerald-300/50 bg-emerald-400/15 text-emerald-100 shadow-[0_0_16px_rgba(52,211,153,0.3)]"
+              : "border-slate-500/40 bg-slate-700/40 text-slate-300"
+          }`}
+        >
+          <span
+            className={`h-2 w-2 rounded-full ${
+              isRecentlyUpdated
+                ? "animate-pulse bg-emerald-300 shadow-[0_0_8px_rgba(110,231,183,0.9)]"
+                : "bg-slate-400"
+            }`}
+          />
+          Última atualização: {isRecentlyUpdated ? "AGORA" : "ANTES"}
+        </span>
+      </p>
       <p className="text-xs text-slate-400">Última atualização: {formatShortDateTime(lastUpdatedAt)}</p>
       {allowManage && (
         <div className="flex flex-wrap items-center gap-2">
