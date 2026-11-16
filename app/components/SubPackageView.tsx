@@ -351,6 +351,7 @@ const WorkOrderProgressRow: React.FC<WorkOrderProgressRowProps> = ({
         <p className="text-sm font-semibold text-emerald-200">O.S: {workOrder.osNumber ?? "-"}</p>
         <p className="text-base font-semibold text-white">{workOrder.machineName || "Sem máquina"}</p>
         <p className="text-sm text-slate-300">Responsável: {workOrder.responsible || "Não informado"}</p>
+        <p className="text-sm text-slate-300">Data: {workOrder.date || "-"}</p>
         <p className="text-sm text-slate-400">{workOrder.task || workOrder.title}</p>
       </div>
       <div className="flex flex-wrap items-center gap-3">

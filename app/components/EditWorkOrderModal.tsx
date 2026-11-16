@@ -15,6 +15,7 @@ const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({ workOrder, onCl
   const [machineName, setMachineName] = useState(workOrder.machineName || "");
   const [task, setTask] = useState(workOrder.task || workOrder.title || "");
   const [responsible, setResponsible] = useState(workOrder.responsible || "");
+  const [date, setDate] = useState(workOrder.date || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +30,7 @@ const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({ workOrder, onCl
         machineName: machineName || null,
         task: task || workOrder.title,
         responsible: responsible || null,
+        date: date || null,
         title: task || workOrder.title,
       });
       onUpdated?.({
@@ -38,6 +40,7 @@ const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({ workOrder, onCl
         machineName: machineName || null,
         task: task || workOrder.title,
         responsible: responsible || null,
+        date: date || null,
         title: task || workOrder.title,
       });
       onClose();
@@ -119,6 +122,17 @@ const EditWorkOrderModal: React.FC<EditWorkOrderModalProps> = ({ workOrder, onCl
             onChange={(e) => setResponsible(e.target.value)}
             className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
             placeholder="Nome do responsável"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-slate-200">Data</label>
+          <input
+            type="text"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-sm text-white focus:border-emerald-400/60 focus:outline-none"
+            placeholder="Data do serviço"
           />
         </div>
 

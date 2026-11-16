@@ -50,6 +50,7 @@ export type WorkOrder = {
   machineName?: string | null;
   task?: string | null;
   responsible?: string | null;
+  date?: string | null;
   importOrder?: number | null;
   [key: string]: any;
   createdBy?: string;

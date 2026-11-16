@@ -39,6 +39,10 @@ export class ExcelImporter {
         machineName: normalizedEntries["nome maquina"] || normalizedEntries["nome máquina"] || undefined,
         task: task ? String(task) : undefined,
         responsible: normalizedEntries["responsável"] || normalizedEntries["responsavel"] || undefined,
+        date:
+          normalizedEntries["data"] !== null && normalizedEntries["data"] !== undefined
+            ? String(normalizedEntries["data"])
+            : undefined,
       };
 
       return workOrder;

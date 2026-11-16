@@ -194,6 +194,7 @@ export const ImportExcelModal: React.FC<Props> = ({
           machineName: p.machineName ?? null,
           task: p.task ?? p.title ?? null,
           responsible: p.responsible ?? null,
+          date: p.date ?? null,
           importOrder,
           sourceRow: p.rowIndex,
         });
@@ -243,7 +244,7 @@ export const ImportExcelModal: React.FC<Props> = ({
           <h2 className="text-xl font-semibold text-white">Adicionar serviços via planilha</h2>
           <p className="text-sm text-slate-400">
             A planilha deve ter o cabeçalho na linha 6 com as colunas: OFICINA, O.S, TAG, NOME
-            MAQUINA, TAREFA e RESPONSÁVEL.
+            MAQUINA, TAREFA, RESPONSÁVEL e DATA.
           </p>
         </div>
         <button
