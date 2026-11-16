@@ -72,22 +72,27 @@ export default function PackagePage() {
 
   const handleSelectSubPackage = (subPackageId: string | null) => {
     setSelectedSubId(subPackageId);
-    if (subPackageId && !workOrdersBySub[subPackageId]) {
-      loadWorkOrders(subPackageId);
-    }
   };
 
-  const loadWorkOrders = async (subPackageId: string) => {
-    setLoadingWorkOrders((prev) => ({ ...prev, [subPackageId]: true }));
-    try {
-      const workOrders = await WorkOrderService.listBySubPackage(subPackageId);
-      setWorkOrdersBySub((prev) => ({ ...prev, [subPackageId]: workOrders }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar serviços do subpacote.");
-    } finally {
-      setLoadingWorkOrders((prev) => ({ ...prev, [subPackageId]: false }));
-    }
-  };
+  useEffect(() => {
+    if (!selectedSubId) return;
+
+    setLoadingWorkOrders((prev) => ({ ...prev, [selectedSubId]: true }));
+    const unsubscribe = WorkOrderService.subscribeBySubPackage(
+      selectedSubId,
+      (workOrders) => {
+        setWorkOrdersBySub((prev) => ({ ...prev, [selectedSubId]: workOrders }));
+        setLoadingWorkOrders((prev) => ({ ...prev, [selectedSubId]: false }));
+        setError(null);
+      },
+      (err) => {
+        setError(err.message || "Erro ao carregar serviços do subpacote.");
+        setLoadingWorkOrders((prev) => ({ ...prev, [selectedSubId]: false }));
+      }
+    );
+
+    return unsubscribe;
+  }, [selectedSubId]);
 
   const handleSubPackageCreated = async (newId: string) => {
     if (!newId) return;
@@ -376,14 +381,8 @@ export default function PackagePage() {
                 return (
               <SubPackageView
                 subPackage={selectedSubPackage}
-                workOrders={selectedWorkOrders}
-                loading={subId ? loadingWorkOrders[subId] : false}
-                onLoadRequest={
-                  subId
-                    ? () =>
-                        !loadingWorkOrders[subId] && !workOrdersBySub[subId] && loadWorkOrders(subId)
-                    : undefined
-                }
+                workOrders={selectedWorkOrders ?? []}
+                loading={subId ? (loadingWorkOrders[subId] ?? true) : false}
                 onWorkOrderProgressChange={handleWorkOrderProgressChange}
                 onWorkOrderRemoved={handleWorkOrderRemoved}
                 onWorkOrderUpdated={handleWorkOrderUpdated}

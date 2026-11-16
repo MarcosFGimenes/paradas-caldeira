@@ -11,6 +11,8 @@ import {
   where,
   serverTimestamp,
   DocumentData,
+  onSnapshot,
+  Unsubscribe,
 } from "firebase/firestore";
 
 export type Package = {
@@ -180,6 +182,21 @@ export class SubPackageService {
 }
 
 export class WorkOrderService {
+  static subscribeBySubPackage(
+    subPackageId: string,
+    onUpdate: (workOrders: WorkOrder[]) => void,
+    onError: (error: Error) => void
+  ): Unsubscribe {
+    const workOrdersQuery = query(col("workorders"), where("subPackageId", "==", subPackageId));
+    return onSnapshot(
+      workOrdersQuery,
+      (snapshot) => {
+        onUpdate(snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as WorkOrder) })));
+      },
+      onError
+    );
+  }
+
   static async listByPackage(packageId: string): Promise<WorkOrder[]> {
     const docs = await getDocs(query(col("workorders"), where("packageId", "==", packageId)));
     return docs.docs.map((d) => ({ id: d.id, ...(d.data() as WorkOrder) }));
